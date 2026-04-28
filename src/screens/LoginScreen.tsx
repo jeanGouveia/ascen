@@ -20,26 +20,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
+import { C, R } from '../styles/theme';
 
 const { width: W } = Dimensions.get('window');
-
-// ─── Design tokens (mesmos do App.tsx) ───────────────────────
-const C = {
-  primary:      '#4F6EF7',
-  primaryLight: '#EEF1FE',
-  primaryDark:  '#3B56D9',
-  success:      '#16A34A',
-  danger:       '#DC2626',
-  dangerLight:  '#FEE2E2',
-  bg:           '#F5F7FF',
-  card:         '#FFFFFF',
-  border:       '#E4E9F8',
-  text:         '#1A2340',
-  textMid:      '#4A5578',
-  textMuted:    '#8896B8',
-};
-
-const R = { sm: 8, md: 12, lg: 16, xl: 20, '2xl': 28, full: 9999 };
 
 // ─── Componente de input com validação visual ─────────────────
 

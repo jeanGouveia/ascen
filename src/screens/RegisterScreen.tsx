@@ -19,22 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
-
-const C = {
-  primary:      '#4F6EF7',
-  primaryLight: '#EEF1FE',
-  success:      '#16A34A',
-  successLight: '#DCFCE7',
-  danger:       '#DC2626',
-  bg:           '#F5F7FF',
-  card:         '#FFFFFF',
-  border:       '#E4E9F8',
-  text:         '#1A2340',
-  textMid:      '#4A5578',
-  textMuted:    '#8896B8',
-};
-
-const R = { full: 9999, '2xl': 28, xl: 20, lg: 16 };
+import { C, R } from '../styles/theme';
 
 // Indicador de força de senha
 function PasswordStrength({ password }: { password: string }) {
