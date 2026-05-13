@@ -1,13 +1,14 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { C, s } from '../styles/theme';
 import { formatBRL, currentMonthName } from '../utils/helpers';
+import { useAppTheme } from '../hooks/useAppTheme';
 import { Card, SectionTitle, ProgressBar, EmptyState, TxCard, FAB } from '../components/Shared';
 import { useApp } from '../context/AppContext';
 import { CATEGORIES } from '../constants/finance';
 
 export function HomeScreen() {
+  const { C, s } = useAppTheme();
   const { transactions, openTxModal } = useApp();
 
   const totalIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);

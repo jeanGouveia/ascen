@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { Alert } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
@@ -11,10 +11,14 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  /** Conta com e-mail e senha (pode alterar senha no app). */
+  canChangePassword: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
+  updateProfile: (params: { fullName: string; avatarUrl?: string | null }) => Promise<void>;
+  updatePassword: (newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -128,16 +132,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   }
 
+  const canChangePassword = useMemo(
+    () => Boolean(user?.identities?.some(i => i.provider === 'email')),
+    [user]
+  );
+
+  async function updateProfile(params: { fullName: string; avatarUrl?: string | null }) {
+    const data: Record<string, string> = { full_name: params.fullName.trim() };
+    if (params.avatarUrl !== undefined) {
+      data.avatar_url = params.avatarUrl ?? '';
+    }
+    const { error } = await supabase.auth.updateUser({ data });
+    if (error) throw new Error(mapAuthError(error.message));
+  }
+
+  async function updatePassword(newPassword: string) {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw new Error(mapAuthError(error.message));
+  }
+
   return (
     <AuthContext.Provider
       value={{
         user,
         session,
         loading,
+        canChangePassword,
         signIn,
         signUp,
         signInWithGoogle,
         signOut,
+        updateProfile,
+        updatePassword,
       }}
     >
       {children}

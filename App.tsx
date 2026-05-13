@@ -1,16 +1,51 @@
-import React, { useState } from 'react';
-import { View, Text } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, DarkTheme, Theme } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 
+import { PreferencesProvider, usePreferences } from './src/context/PreferencesContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { AppProvider, useApp } from './src/context/AppContext';
+import { CategoryProvider } from './src/context/CategoryContext';
+import { RecurringProvider } from './src/context/RecurringContext';
 import { AppNavigator } from './src/screens/AppNavigator';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { RegisterScreen } from './src/screens/RegisterScreen';
 import { TransactionModal } from './src/components/TransactionModal';
+import { getColors, C_light } from './src/styles/theme';
+
+function ThemedNavigation({ children }: { children: React.ReactNode }) {
+  const { darkMode, loaded } = usePreferences();
+  const C = useMemo(() => getColors(darkMode), [darkMode]);
+  const navTheme = useMemo((): Theme => {
+    const base = darkMode ? DarkTheme : DefaultTheme;
+    return {
+      ...base,
+      dark: darkMode,
+      colors: {
+        ...base.colors,
+        primary: C.primary,
+        background: C.bg,
+        card: C.card,
+        text: C.text,
+        border: C.border,
+        notification: C.primary,
+      },
+    };
+  }, [darkMode, C]);
+
+  if (!loaded) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: C_light.bg }}>
+        <ActivityIndicator size="large" color={C_light.primary} />
+      </View>
+    );
+  }
+
+  return <NavigationContainer theme={navTheme}>{children}</NavigationContainer>;
+}
 
 function AuthGate() {
   const { user, loading } = useAuth();
@@ -18,15 +53,8 @@ function AuthGate() {
 
   if (loading) {
     return (
-      <View
-        style={{
-          flex: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: '#F5F7FF',
-        }}
-      >
-        <Text style={{ color: '#4F6EF7', fontSize: 16, fontWeight: '600' }}>Carregando...</Text>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C_light.bg }}>
+        <Text style={{ color: C_light.primary, fontSize: 16, fontWeight: '600' }}>Carregando...</Text>
       </View>
     );
   }
@@ -43,10 +71,11 @@ function AuthGate() {
 
 function AppContent() {
   const { modalState, closeTxModal } = useApp();
+  const { darkMode } = usePreferences();
 
   return (
     <>
-      <StatusBar style="dark" />
+      <StatusBar style={darkMode ? 'light' : 'dark'} />
       <AppNavigator />
       <TransactionModal state={modalState} onClose={closeTxModal} />
     </>
@@ -57,13 +86,19 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <NavigationContainer>
-          <AuthProvider>
-            <AppProvider>
-              <AuthGate />
-            </AppProvider>
-          </AuthProvider>
-        </NavigationContainer>
+        <PreferencesProvider>
+          <ThemedNavigation>
+            <AuthProvider>
+              <AppProvider>
+                <CategoryProvider>
+                  <RecurringProvider>
+                    <AuthGate />
+                  </RecurringProvider>
+                </CategoryProvider>
+              </AppProvider>
+            </AuthProvider>
+          </ThemedNavigation>
+        </PreferencesProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

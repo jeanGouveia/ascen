@@ -1,3 +1,6 @@
+// src/types/index.ts — ATUALIZADO
+// Adicionado campo isFixed para identificar lançamentos gerados por recorrência
+
 export type TxType = 'income' | 'expense';
 
 export interface Transaction {
@@ -12,7 +15,7 @@ export interface Transaction {
   paymentMethod: string;
   isInstallment?: boolean;
   installmentInfo?: string;
-  isFixed?: boolean;
+  isFixed?: boolean;    // true = gerado por uma Conta Recorrente
   isPaid?: boolean;
   notes?: string;
 }
@@ -31,4 +34,13 @@ export interface Goal {
 export interface TxModalState {
   visible: boolean;
   defaultType: TxType;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  type: 'expense' | 'income' | 'both';
+  isDefault?: boolean;
 }

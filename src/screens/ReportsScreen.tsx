@@ -1,12 +1,13 @@
 import React from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { C, s, R } from '../styles/theme';
 import { formatBRL, currentMonthName } from '../utils/helpers';
+import { useAppTheme } from '../hooks/useAppTheme';
 import { Card, SectionTitle, ProgressBar, EmptyState } from '../components/Shared';
 import { useApp } from '../context/AppContext';
 
 export function ReportsScreen() {
+  const { C, s, R } = useAppTheme();
   const { transactions } = useApp();
   const totalIncome  = transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
   const totalExpense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);

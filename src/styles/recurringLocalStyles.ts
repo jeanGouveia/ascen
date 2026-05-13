@@ -1,0 +1,146 @@
+import { StyleSheet } from 'react-native';
+import { R, AppColors } from './theme';
+
+export function createRecurringLocalStyles(c: AppColors) {
+  return StyleSheet.create({
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: c.border,
+      backgroundColor: c.card,
+    },
+    addBtn: {
+      backgroundColor: c.primary,
+      borderRadius: R.full,
+      width: 40,
+      height: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: c.primary,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 5,
+    },
+
+    summaryCard: {
+      backgroundColor: c.primary,
+      borderRadius: R['2xl'],
+      padding: 20,
+      marginBottom: 20,
+      overflow: 'hidden',
+    },
+    summaryGlow: {
+      position: 'absolute',
+      top: -30,
+      right: -30,
+      width: 120,
+      height: 120,
+      borderRadius: 60,
+      backgroundColor: 'rgba(255,255,255,0.10)',
+    },
+    summaryMonth: {
+      color: 'rgba(255,255,255,0.75)',
+      fontSize: 13,
+      fontWeight: '600',
+      letterSpacing: 0.8,
+      marginBottom: 14,
+    },
+    summaryLabel: { color: 'rgba(255,255,255,0.70)', fontSize: 12, fontWeight: '500', marginBottom: 4 },
+    summaryValue: { fontSize: 20, fontWeight: '800', letterSpacing: -0.5 },
+    summaryDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.2)', marginHorizontal: 16 },
+    pendingBadge: {
+      backgroundColor: 'rgba(255,255,255,0.15)',
+      borderRadius: R.xl,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      marginTop: 16,
+      alignSelf: 'flex-start',
+    },
+    pendingBadgeText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+
+    groupLabel: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: c.textMuted,
+      letterSpacing: 1.2,
+      marginBottom: 10,
+    },
+
+    ruleCard: {
+      backgroundColor: c.card,
+      borderRadius: R['2xl'],
+      padding: 16,
+      borderWidth: 1,
+      borderColor: c.border,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 10,
+      elevation: 2,
+      gap: 12,
+    },
+    dueBadge: {
+      borderRadius: R.xl,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      alignSelf: 'flex-start',
+    },
+    dueBadgeText: { fontSize: 12, fontWeight: '700' },
+    ruleIcon: {
+      width: 48,
+      height: 48,
+      borderRadius: R.lg,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    ruleDesc: { fontSize: 15, fontWeight: '700', color: c.text, marginBottom: 2 },
+    ruleMeta: { fontSize: 12, color: c.textMuted },
+    ruleAmount: { fontSize: 16, fontWeight: '800', letterSpacing: -0.3 },
+    ruleActions: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+    actionBtn: {
+      borderRadius: R.xl,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      alignItems: 'center',
+    },
+    actionBtnSec: {
+      backgroundColor: c.bg,
+      borderRadius: R.xl,
+      width: 38,
+      height: 38,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+
+    freqBtn: {
+      borderRadius: R.xl,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      borderWidth: 1.5,
+      borderColor: c.border,
+      backgroundColor: c.card,
+      alignItems: 'center',
+    },
+    freqTxt: { fontSize: 14, fontWeight: '600', color: c.textMid },
+
+    tipCard: {
+      backgroundColor: c.primaryLight,
+      borderRadius: R.xl,
+      padding: 16,
+      flexDirection: 'row',
+      gap: 10,
+      alignItems: 'flex-start',
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    tipText: { fontSize: 13, color: c.textMid, lineHeight: 18, flex: 1 },
+  });
+}
+
+export type RecurringLocalStyles = ReturnType<typeof createRecurringLocalStyles>;

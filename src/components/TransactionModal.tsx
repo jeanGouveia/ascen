@@ -12,11 +12,12 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { C, s } from '../styles/theme';
 import { TxType, TxModalState } from '../types';
+import { useAppTheme } from '../hooks/useAppTheme';
 import { todayStr } from '../utils/helpers';
 import { useApp } from '../context/AppContext';
-import { CATEGORIES, PAYMENT_METHODS } from '../constants/finance';
+import { PAYMENT_METHODS } from '../constants/finance';
+import { useCategories } from '../context/CategoryContext';
 
 export function TransactionModal({
   state,
@@ -25,13 +26,15 @@ export function TransactionModal({
   state: TxModalState;
   onClose: () => void;
 }) {
+  const { C, s } = useAppTheme();
   const { addTransaction } = useApp();
+  const { categories } = useCategories();
   const [type, setType] = useState<TxType>('expense');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
   const [categoryIcon, setCategoryIcon] = useState('📦');
-  const [categoryColor, setCategoryColor] = useState(C.textMuted);
+  const [categoryColor, setCategoryColor] = useState<string>(C.textMuted);
   const [paymentMethod, setPaymentMethod] = useState('Pix');
   const [date, setDate] = useState(todayStr());
   const [isInstallment, setIsInstallment] = useState(false);
@@ -50,9 +53,9 @@ export function TransactionModal({
       setIsInstallment(false);
       setInstallments('2');
     }
-  }, [state.visible]);
+  }, [state.visible, C.textMuted]);
 
-  const filteredCats = CATEGORIES.filter(c => c.type === type || c.type === 'both');
+  const filteredCats = categories.filter(c => c.type === type || c.type === 'both');
 
   const handleSave = () => {
     const parsed = parseFloat(amount.replace(',', '.'));

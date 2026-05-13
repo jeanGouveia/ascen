@@ -10,8 +10,9 @@ import {
   Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { C, s } from '../styles/theme';
 import { formatBRL, formatDate } from '../utils/helpers';
+import { useAppTheme } from '../hooks/useAppTheme';
+import { C_light } from '../styles/theme';
 import { Card, ProgressBar, EmptyState } from '../components/Shared';
 import { Goal } from '../types';
 
@@ -45,9 +46,10 @@ const INITIAL_GOALS: Goal[] = [
 ];
 
 const GOAL_ICONS = ['🎯', '✈️', '🏠', '🚗', '💍', '🎓', '💻', '📱', '🏖️', '🐾', '🎁', '⛵'];
-const GOAL_COLORS = [C.primary, '#F97316', '#22C55E', '#EC4899', '#8B5CF6', '#06B6D4', '#F59E0B'];
+const GOAL_COLORS = [C_light.primary, '#F97316', '#22C55E', '#EC4899', '#8B5CF6', '#06B6D4', '#F59E0B'];
 
 export function GoalsScreen() {
+  const { C, s } = useAppTheme();
   const [goals, setGoals] = useState<Goal[]>(INITIAL_GOALS);
   const [depositTarget, setDepositTarget] = useState<Goal | null>(null);
   const [depositAmount, setDepositAmount] = useState('');
@@ -55,7 +57,7 @@ export function GoalsScreen() {
   const [newName, setNewName] = useState('');
   const [newTarget, setNewTarget] = useState('');
   const [newIcon, setNewIcon] = useState('🎯');
-  const [newColor, setNewColor] = useState(C.primary);
+  const [newColor, setNewColor] = useState<string>(C_light.primary);
 
   const handleDeposit = () => {
     if (!depositTarget) return;

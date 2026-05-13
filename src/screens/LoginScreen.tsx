@@ -20,7 +20,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
-import { C, R } from '../styles/theme';
+import { C_light as C, R } from '../styles/theme';
 
 const { width: W } = Dimensions.get('window');
 

@@ -1,19 +1,22 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Alert } from 'react-native';
-import { C, s } from '../styles/theme';
 import { Transaction } from '../types';
 import { formatBRL, formatDate } from '../utils/helpers';
 import { useApp } from '../context/AppContext';
+import { useAppTheme } from '../hooks/useAppTheme';
 
 export function Card({ children, style }: { children: React.ReactNode; style?: object }) {
+  const { s } = useAppTheme();
   return <View style={[s.card, style]}>{children}</View>;
 }
 
 export function SectionTitle({ children }: { children: string }) {
+  const { s } = useAppTheme();
   return <Text style={s.sectionTitle}>{children}</Text>;
 }
 
 export function ProgressBar({ value, color, height = 8 }: { value: number; color: string; height?: number }) {
+  const { s } = useAppTheme();
   const pct = Math.min(Math.max(value, 0), 100);
   return (
     <View style={[s.progressTrack, { height }]}>
@@ -23,6 +26,7 @@ export function ProgressBar({ value, color, height = 8 }: { value: number; color
 }
 
 export function EmptyState({ icon, title, subtitle }: { icon: string; title: string; subtitle?: string }) {
+  const { s } = useAppTheme();
   return (
     <View style={s.emptyState}>
       <Text style={{ fontSize: 52, marginBottom: 12 }}>{icon}</Text>
@@ -34,6 +38,7 @@ export function EmptyState({ icon, title, subtitle }: { icon: string; title: str
 
 export function FAB() {
   const { openTxModal } = useApp();
+  const { s } = useAppTheme();
   return (
     <TouchableOpacity onPress={() => openTxModal()} activeOpacity={0.85} style={s.fab}>
       <Text style={{ color: '#fff', fontSize: 30, lineHeight: 34, fontWeight: '300' }}>+</Text>
@@ -42,6 +47,7 @@ export function FAB() {
 }
 
 export function TxCard({ tx }: { tx: Transaction }) {
+  const { C, s } = useAppTheme();
   const { deleteTransaction } = useApp();
   const handleDelete = () => {
     Alert.alert(

@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
-import { C, R } from '../styles/theme';
+import { C_light as C, R } from '../styles/theme';
 
 // Indicador de força de senha
 function PasswordStrength({ password }: { password: string }) {
