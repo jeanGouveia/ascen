@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -14,10 +14,17 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TxType, TxModalState } from '../types';
 import { useAppTheme } from '../hooks/useAppTheme';
-import { todayStr } from '../utils/helpers';
+import { formatBRL, todayStr } from '../utils/helpers';
 import { useApp } from '../context/AppContext';
 import { PAYMENT_METHODS } from '../constants/finance';
 import { useCategories } from '../context/CategoryContext';
+import {
+  buildInstallmentSchedule,
+  splitAmountEvenly,
+  type InstallmentScheduleItem,
+} from '../utils/installments';
+
+type AmountMode = 'total' | 'per_installment';
 
 export function TransactionModal({
   state,
@@ -27,7 +34,7 @@ export function TransactionModal({
   onClose: () => void;
 }) {
   const { C, s } = useAppTheme();
-  const { addTransaction } = useApp();
+  const { addTransaction, addTransactions } = useApp();
   const { categories } = useCategories();
   const [type, setType] = useState<TxType>('expense');
   const [amount, setAmount] = useState('');
@@ -38,7 +45,10 @@ export function TransactionModal({
   const [paymentMethod, setPaymentMethod] = useState('Pix');
   const [date, setDate] = useState(todayStr());
   const [isInstallment, setIsInstallment] = useState(false);
-  const [installments, setInstallments] = useState('2');
+  const [installmentCount, setInstallmentCount] = useState('3');
+  const [amountMode, setAmountMode] = useState<AmountMode>('total');
+  const [perInstallmentAmount, setPerInstallmentAmount] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (state.visible) {
@@ -51,13 +61,55 @@ export function TransactionModal({
       setPaymentMethod('Pix');
       setDate(todayStr());
       setIsInstallment(false);
-      setInstallments('2');
+      setInstallmentCount('3');
+      setAmountMode('total');
+      setPerInstallmentAmount('');
+      setSaving(false);
     }
   }, [state.visible, C.textMuted]);
 
   const filteredCats = categories.filter(c => c.type === type || c.type === 'both');
 
-  const handleSave = () => {
+  const parsedMainAmount = parseFloat(amount.replace(',', '.')) || 0;
+  const countNum = Math.max(2, Math.min(120, parseInt(installmentCount, 10) || 2));
+
+  const computedPerInstallment = useMemo(() => {
+    if (amountMode === 'per_installment') return parsedMainAmount;
+    if (parsedMainAmount <= 0) return 0;
+    return splitAmountEvenly(parsedMainAmount, countNum)[0];
+  }, [amountMode, parsedMainAmount, countNum]);
+
+  const previewSchedule: InstallmentScheduleItem[] = useMemo(() => {
+    if (!isInstallment || parsedMainAmount <= 0) return [];
+    const per =
+      amountMode === 'per_installment'
+        ? parseFloat(perInstallmentAmount.replace(',', '.')) || parsedMainAmount
+        : computedPerInstallment;
+    if (per <= 0) return [];
+    return buildInstallmentSchedule({
+      firstDate: date,
+      count: countNum,
+      amountMode: 'per_installment',
+      inputAmount: per,
+    });
+  }, [isInstallment, parsedMainAmount, amountMode, perInstallmentAmount, computedPerInstallment, date, countNum]);
+
+  useEffect(() => {
+    if (!isInstallment) return;
+    if (amountMode === 'total' && computedPerInstallment > 0) {
+      setPerInstallmentAmount(computedPerInstallment.toFixed(2).replace('.', ','));
+    }
+  }, [isInstallment, amountMode, computedPerInstallment, countNum]);
+
+  const handlePerInstallmentChange = (text: string) => {
+    setPerInstallmentAmount(text);
+    const per = parseFloat(text.replace(',', '.'));
+    if (amountMode === 'per_installment' && per > 0) {
+      setAmount(String((per * countNum).toFixed(2)).replace('.', ','));
+    }
+  };
+
+  const handleSave = async () => {
     const parsed = parseFloat(amount.replace(',', '.'));
     if (!parsed || parsed <= 0) {
       Alert.alert('Valor inválido', 'Informe um valor maior que zero.');
@@ -67,20 +119,59 @@ export function TransactionModal({
       Alert.alert('Campo obrigatório', 'Informe uma descrição.');
       return;
     }
-    addTransaction({
+
+    const base = {
       type,
-      amount: parsed,
       description: description.trim(),
       category: category || 'Outros',
       categoryIcon,
       categoryColor,
       paymentMethod,
-      date,
-      isInstallment,
-      installmentInfo: isInstallment ? `1/${installments}` : undefined,
-    });
-    onClose();
+    };
+
+    setSaving(true);
+    try {
+      if (isInstallment && type === 'expense') {
+        const per =
+          parseFloat(perInstallmentAmount.replace(',', '.')) ||
+          (amountMode === 'per_installment' ? parsed : computedPerInstallment);
+        if (!per || per <= 0) {
+          Alert.alert('Valor inválido', 'Informe o valor de cada parcela.');
+          return;
+        }
+        const schedule = buildInstallmentSchedule({
+          firstDate: date,
+          count: countNum,
+          amountMode: 'per_installment',
+          inputAmount: per,
+        });
+        await addTransactions(
+          schedule.map(item => ({
+            ...base,
+            amount: item.amount,
+            date: item.date,
+            isInstallment: true,
+            installmentInfo: item.installmentInfo,
+          }))
+        );
+      } else {
+        await addTransaction({
+          ...base,
+          amount: parsed,
+          date,
+          isInstallment: false,
+        });
+      }
+      onClose();
+    } finally {
+      setSaving(false);
+    }
   };
+
+  const totalPreview =
+    previewSchedule.length > 0
+      ? previewSchedule.reduce((s, i) => s + i.amount, 0)
+      : parsedMainAmount;
 
   return (
     <Modal
@@ -100,11 +191,12 @@ export function TransactionModal({
             </TouchableOpacity>
             <Text style={s.modalTitle}>Novo Lançamento</Text>
             <TouchableOpacity
-              onPress={handleSave}
-              style={[s.modalSaveBtn, { backgroundColor: type === 'income' ? C.success : C.danger }]}
+              onPress={() => void handleSave()}
+              disabled={saving}
+              style={[s.modalSaveBtn, { backgroundColor: type === 'income' ? C.success : C.danger, opacity: saving ? 0.6 : 1 }]}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Text style={{ fontSize: 15, color: '#fff', fontWeight: '700' }}>Salvar</Text>
+              <Text style={{ fontSize: 15, color: '#fff', fontWeight: '700' }}>{saving ? '…' : 'Salvar'}</Text>
             </TouchableOpacity>
           </View>
 
@@ -129,6 +221,7 @@ export function TransactionModal({
                 onPress={() => {
                   setType('income');
                   setCategory('');
+                  setIsInstallment(false);
                 }}
                 activeOpacity={0.8}
               >
@@ -137,7 +230,9 @@ export function TransactionModal({
             </View>
 
             <View style={s.formGroup}>
-              <Text style={s.formLabel}>VALOR (R$)</Text>
+              <Text style={s.formLabel}>
+                {isInstallment && amountMode === 'total' ? 'VALOR TOTAL (R$)' : 'VALOR (R$)'}
+              </Text>
               <TextInput
                 style={[s.amountInput, { borderColor: type === 'income' ? C.success : C.danger }]}
                 value={amount}
@@ -154,13 +249,13 @@ export function TransactionModal({
                 style={s.textInput}
                 value={description}
                 onChangeText={setDescription}
-                placeholder="Ex: Supermercado, Aposentadoria..."
+                placeholder="Ex: Supermercado, TV..."
                 placeholderTextColor={C.textMuted}
               />
             </View>
 
             <View style={s.formGroup}>
-              <Text style={s.formLabel}>DATA</Text>
+              <Text style={s.formLabel}>{isInstallment ? 'DATA DA 1ª PARCELA' : 'DATA'}</Text>
               <TextInput
                 style={s.textInput}
                 value={date}
@@ -182,7 +277,7 @@ export function TransactionModal({
                 <View style={{ paddingLeft: 20, flexDirection: 'row', gap: 8 }}>
                   {filteredCats.map(cat => (
                     <TouchableOpacity
-                      key={cat.name}
+                      key={cat.id}
                       onPress={() => {
                         setCategory(cat.name);
                         setCategoryIcon(cat.icon);
@@ -240,7 +335,9 @@ export function TransactionModal({
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                   <View style={{ flex: 1 }}>
                     <Text style={[s.formLabel, { marginBottom: 2 }]}>💳 COMPRA PARCELADA</Text>
-                    <Text style={{ color: C.textMuted, fontSize: 13 }}>Cria uma parcela por mês</Text>
+                    <Text style={{ color: C.textMuted, fontSize: 13 }}>
+                      Gera {countNum} lançamentos (um por mês)
+                    </Text>
                   </View>
                   <Switch
                     value={isInstallment}
@@ -250,15 +347,89 @@ export function TransactionModal({
                     ios_backgroundColor={C.border}
                   />
                 </View>
+
                 {isInstallment && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 14, gap: 12 }}>
-                    <Text style={{ color: C.textMid, fontSize: 15, flex: 1 }}>Número de parcelas:</Text>
-                    <TextInput
-                      style={[s.textInput, { width: 72, textAlign: 'center' }]}
-                      value={installments}
-                      onChangeText={v => setInstallments(v.replace(/[^0-9]/g, ''))}
-                      keyboardType="number-pad"
-                    />
+                  <View style={{ marginTop: 16, gap: 14 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <Text style={{ color: C.textMid, fontSize: 14, flex: 1 }}>Número de parcelas</Text>
+                      <TextInput
+                        style={[s.textInput, { width: 72, textAlign: 'center' }]}
+                        value={installmentCount}
+                        onChangeText={v => setInstallmentCount(v.replace(/[^0-9]/g, ''))}
+                        keyboardType="number-pad"
+                      />
+                    </View>
+
+                    <View>
+                      <Text style={[s.formLabel, { marginBottom: 8 }]}>O VALOR INFORMADO É</Text>
+                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                        <TouchableOpacity
+                          onPress={() => setAmountMode('total')}
+                          style={[
+                            s.chip,
+                            { flex: 1, justifyContent: 'center' },
+                            amountMode === 'total' && { backgroundColor: C.primary, borderColor: C.primary },
+                          ]}
+                        >
+                          <Text style={[s.chipText, amountMode === 'total' && { color: '#fff', textAlign: 'center' }]}>
+                            Total da compra
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => setAmountMode('per_installment')}
+                          style={[
+                            s.chip,
+                            { flex: 1, justifyContent: 'center' },
+                            amountMode === 'per_installment' && {
+                              backgroundColor: C.primary,
+                              borderColor: C.primary,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              s.chipText,
+                              amountMode === 'per_installment' && { color: '#fff', textAlign: 'center' },
+                            ]}
+                          >
+                            Cada parcela
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    <View>
+                      <Text style={s.formLabel}>VALOR DE CADA PARCELA (R$)</Text>
+                      <Text style={{ fontSize: 12, color: C.textMuted, marginBottom: 6 }}>
+                        Ajuste todas de uma vez (ex.: com juros no cartão)
+                      </Text>
+                      <TextInput
+                        style={s.textInput}
+                        value={perInstallmentAmount}
+                        onChangeText={handlePerInstallmentChange}
+                        keyboardType="decimal-pad"
+                        placeholder="0,00"
+                        placeholderTextColor={C.textMuted}
+                      />
+                    </View>
+
+                    {previewSchedule.length > 0 && (
+                      <View
+                        style={{
+                          backgroundColor: C.primaryLight,
+                          padding: 12,
+                          borderRadius: 10,
+                        }}
+                      >
+                        <Text style={{ fontWeight: '700', color: C.primary, marginBottom: 4 }}>
+                          {countNum}x de {formatBRL(previewSchedule[0]?.amount ?? 0)}
+                        </Text>
+                        <Text style={{ fontSize: 13, color: C.textMid }}>
+                          Total: {formatBRL(totalPreview)} · de {previewSchedule[0]?.date.split('-').reverse().join('/')} até{' '}
+                          {previewSchedule[previewSchedule.length - 1]?.date.split('-').reverse().join('/')}
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 )}
               </View>

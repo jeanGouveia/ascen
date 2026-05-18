@@ -12,22 +12,28 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../context/AuthContext';
+import { useUserLocal } from '../context/UserLocalDataContext';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { Card } from '../components/Shared';
-import { uploadAvatarFromUri } from '../services/avatarUpload';
+import { saveAvatarFromPickerUri, removeLocalAvatar } from '../services/localAvatar';
+
+function isLegacyRemoteAvatar(url?: string): boolean {
+  return Boolean(url && (url.startsWith('http://') || url.startsWith('https://')));
+}
 
 export function EditProfileScreen() {
   const { user, updateProfile } = useAuth();
+  const { localAvatarUri, refreshLocalAvatar } = useUserLocal();
   const { C, s } = useAppTheme();
   const meta = user?.user_metadata as Record<string, string | undefined> | undefined;
   const initialName = (meta?.full_name as string) || '';
-  const initialAvatar = meta?.avatar_url as string | undefined;
+  const legacyRemote = isLegacyRemoteAvatar(meta?.avatar_url);
 
   const [name, setName] = useState(initialName);
   const [localPhotoUri, setLocalPhotoUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const displayUri = localPhotoUri || initialAvatar;
+  const displayUri = localPhotoUri || localAvatarUri || (legacyRemote ? meta?.avatar_url : undefined);
 
   const pickImage = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -55,24 +61,15 @@ export function EditProfileScreen() {
     if (!user?.id) return;
     setSaving(true);
     try {
-      let avatarUrl: string | undefined = initialAvatar;
       if (localPhotoUri) {
-        try {
-          avatarUrl = await uploadAvatarFromUri(user.id, localPhotoUri);
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : 'Erro ao enviar foto';
-          Alert.alert(
-            'Foto de perfil',
-            `${msg}\n\nConfirme se o bucket de armazenamento "avatars" existe no projeto Supabase e se as políticas permitem upload para usuários autenticados.`,
-            [{ text: 'OK' }]
-          );
-          setSaving(false);
-          return;
-        }
+        await saveAvatarFromPickerUri(user.id, localPhotoUri);
+        await updateProfile({ fullName: trimmed, avatarUrl: '' });
+        await refreshLocalAvatar();
+        setLocalPhotoUri(null);
+      } else {
+        await updateProfile({ fullName: trimmed });
       }
-      await updateProfile({ fullName: trimmed, avatarUrl });
-      setLocalPhotoUri(null);
-      Alert.alert('Perfil atualizado', 'Suas alterações foram salvas.');
+      Alert.alert('Perfil atualizado', 'Suas alterações foram salvas no aparelho.');
     } catch (e) {
       Alert.alert('Erro', e instanceof Error ? e.message : 'Não foi possível salvar.');
     } finally {
@@ -80,10 +77,33 @@ export function EditProfileScreen() {
     }
   };
 
+  const handleRemovePhoto = () => {
+    if (!user?.id) return;
+    Alert.alert('Remover foto', 'A foto deixará de aparecer neste aparelho.', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Remover',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await removeLocalAvatar(user.id);
+            await updateProfile({ fullName: name.trim(), avatarUrl: '' });
+            await refreshLocalAvatar();
+            setLocalPhotoUri(null);
+          } catch (e) {
+            Alert.alert('Erro', e instanceof Error ? e.message : 'Não foi possível remover.');
+          }
+        },
+      },
+    ]);
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['bottom']}>
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
-        <Text style={[s.pageSubtitle, { marginBottom: 16 }]}>Nome e foto usados no app.</Text>
+        <Text style={[s.pageSubtitle, { marginBottom: 16 }]}>
+          Nome fica na sua conta; a foto fica só neste aparelho e entra no backup cifrado.
+        </Text>
 
         <Card style={{ marginBottom: 16, alignItems: 'center' }}>
           <TouchableOpacity onPress={pickImage} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Alterar foto de perfil">
@@ -98,6 +118,11 @@ export function EditProfileScreen() {
           <TouchableOpacity onPress={pickImage} style={{ marginTop: 10 }} accessibilityRole="button">
             <Text style={{ color: C.primary, fontWeight: '700', fontSize: 15 }}>Escolher foto da galeria</Text>
           </TouchableOpacity>
+          {(localAvatarUri || localPhotoUri || legacyRemote) && (
+            <TouchableOpacity onPress={handleRemovePhoto} style={{ marginTop: 8 }} accessibilityRole="button">
+              <Text style={{ color: C.danger, fontWeight: '600', fontSize: 14 }}>Remover foto</Text>
+            </TouchableOpacity>
+          )}
         </Card>
 
         <View style={s.formGroup}>

@@ -7,9 +7,12 @@ import { StatusBar } from 'expo-status-bar';
 
 import { PreferencesProvider, usePreferences } from './src/context/PreferencesContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { UserLocalDataProvider } from './src/context/UserLocalDataContext';
+import { FamilyProvider } from './src/context/FamilyContext';
 import { AppProvider, useApp } from './src/context/AppContext';
 import { CategoryProvider } from './src/context/CategoryContext';
 import { RecurringProvider } from './src/context/RecurringContext';
+import { GoalsProvider } from './src/context/GoalsContext';
 import { AppNavigator } from './src/screens/AppNavigator';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { RegisterScreen } from './src/screens/RegisterScreen';
@@ -89,13 +92,19 @@ export default function App() {
         <PreferencesProvider>
           <ThemedNavigation>
             <AuthProvider>
-              <AppProvider>
-                <CategoryProvider>
-                  <RecurringProvider>
-                    <AuthGate />
-                  </RecurringProvider>
-                </CategoryProvider>
-              </AppProvider>
+              <UserLocalDataProvider>
+                <FamilyProvider>
+                  <AppProvider>
+                    <CategoryProvider>
+                      <RecurringProvider>
+                        <GoalsProvider>
+                          <AuthGate />
+                        </GoalsProvider>
+                      </RecurringProvider>
+                    </CategoryProvider>
+                  </AppProvider>
+                </FamilyProvider>
+              </UserLocalDataProvider>
             </AuthProvider>
           </ThemedNavigation>
         </PreferencesProvider>

@@ -43,7 +43,11 @@ function TabNavigator() {
       <Tab.Screen name="Lançamentos" component={TransactionsScreen} options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="📋" focused={focused} /> }} />
       <Tab.Screen name="Relatórios" component={ReportsScreen} options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="📊" focused={focused} /> }} />
       <Tab.Screen name="Metas" component={GoalsScreen} options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="🎯" focused={focused} /> }} />
-      <Tab.Screen name="Perfil" component={ProfileScreen} options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="👤" focused={focused} /> }} />
+      <Tab.Screen
+        name="Configurações"
+        component={ProfileScreen}
+        options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="⚙️" focused={focused} /> }}
+      />
     </Tab.Navigator>
   );
 }

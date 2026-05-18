@@ -1,15 +1,18 @@
 /**
- * src/context/RecurringContext.tsx
- * CRUD completo de recurring_rules no Supabase.
- * "Pendente este mês" = last_confirmed é nulo ou anterior ao 1º dia do mês atual.
+ * Regras recorrentes no SQLite local. Confirmação do mês atualiza last_confirmed e cria transação via AppContext.
  */
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { Alert } from 'react-native';
-import { supabase } from '../services/supabase';
 import { useAuth } from './AuthContext';
+import { useUserLocal } from './UserLocalDataContext';
 import { useApp } from './AppContext';
 import { TxType } from '../types';
+import * as localDb from '../db/localDataDb';
+import { scheduleSync } from '../services/sync/syncEngine';
+import { confirmDateForRule, isRuleActiveInCurrentMonth } from '../utils/recurringDates';
+import { buildProjectedTransaction, transactionMatchesRuleMonth } from '../utils/recurringTransactions';
+import { syncRecurringProjectedTransactions } from '../services/recurringProjections';
 
 export type RecurringFrequency = 'monthly' | 'weekly' | 'yearly';
 
@@ -25,8 +28,9 @@ export interface RecurringRule {
   dayOfMonth: number;
   frequency: RecurringFrequency;
   active: boolean;
-  lastConfirmed: string | null; // 'YYYY-MM-01' ou null
-  // Calculado localmente
+  lastConfirmed: string | null;
+  /** Primeiro mês em que a recorrência vale (AAAA-MM-DD). */
+  startsOn: string;
   confirmedThisMonth?: boolean;
   skippedThisMonth?: boolean;
 }
@@ -47,7 +51,6 @@ interface RecurringContextType {
 const RecurringContext = createContext<RecurringContextType>({} as RecurringContextType);
 export const useRecurring = () => useContext(RecurringContext);
 
-// Primeiro dia do mês atual em UTC
 function startOfCurrentMonth(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
@@ -62,10 +65,10 @@ function isConfirmedThisMonth(lastConfirmed: string | null): boolean {
   return lastConfirmed >= startOfCurrentMonth();
 }
 
-function mapRow(row: any): RecurringRule {
+function mapRow(row: localDb.LocalRecurringRow): RecurringRule {
   return {
     id: row.id,
-    type: row.type,
+    type: row.type as TxType,
     description: row.description,
     amount: Number(row.amount),
     category: row.category,
@@ -74,138 +77,184 @@ function mapRow(row: any): RecurringRule {
     paymentMethod: row.payment_method,
     dayOfMonth: row.day_of_month,
     frequency: row.frequency,
-    active: row.active,
+    active: Boolean(row.active),
     lastConfirmed: row.last_confirmed ?? null,
+    startsOn: row.starts_on ?? row.updated_at?.slice(0, 10) ?? todayStr(),
     confirmedThisMonth: isConfirmedThisMonth(row.last_confirmed),
   };
 }
 
 export const RecurringProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const { addTransaction } = useApp();
+  const { localDataReady, dataRevision } = useUserLocal();
+  const { addTransaction, fetchTransactions } = useApp();
   const [rules, setRules] = useState<RecurringRule[]>([]);
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
-    if (!user) { setRules([]); setLoading(false); return; }
+    if (!user || !localDataReady) {
+      setRules([]);
+      setLoading(false);
+      return;
+    }
     try {
-      const { data, error } = await supabase
-        .from('recurring_rules')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('day_of_month', { ascending: true });
-      if (error) throw error;
-      setRules((data ?? []).map(mapRow));
-    } catch (err: any) {
-      console.error('RecurringContext.reload:', err.message);
+      const rows = await localDb.listRecurringRows();
+      setRules(rows.map(mapRow));
+    } catch (err: unknown) {
+      console.error('RecurringContext.reload:', err instanceof Error ? err.message : err);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, localDataReady]);
 
-  useEffect(() => { reload(); }, [reload]);
+  useEffect(() => {
+    void reload();
+  }, [reload, dataRevision]);
 
-  const addRule = useCallback(async (data: RecurringInput) => {
-    if (!user) return;
-    try {
-      const { error } = await supabase.from('recurring_rules').insert([{
-        user_id:        user.id,
-        type:           data.type,
-        description:    data.description,
-        amount:         data.amount,
-        category:       data.category,
-        category_icon:  data.categoryIcon,
-        category_color: data.categoryColor,
-        payment_method: data.paymentMethod,
-        day_of_month:   data.dayOfMonth,
-        frequency:      data.frequency,
-        active:         data.active,
-      }]);
-      if (error) throw error;
-      await reload();
-    } catch (err: any) {
-      Alert.alert('Erro ao salvar', err.message);
-    }
-  }, [user, reload]);
+  const addRule = useCallback(
+    async (data: RecurringInput) => {
+      if (!user || !localDataReady) return;
+      try {
+        const id = await localDb.insertRecurringRow({
+          type: data.type,
+          description: data.description,
+          amount: data.amount,
+          category: data.category,
+          categoryIcon: data.categoryIcon,
+          categoryColor: data.categoryColor,
+          paymentMethod: data.paymentMethod,
+          dayOfMonth: data.dayOfMonth,
+          frequency: data.frequency,
+          active: data.active,
+          startsOn: data.startsOn,
+        });
+        await syncRecurringProjectedTransactions({ id, ...data });
+        scheduleSync(user.id);
+        await fetchTransactions();
+        await reload();
+      } catch (err: unknown) {
+        Alert.alert('Erro ao salvar', err instanceof Error ? err.message : 'Erro desconhecido');
+      }
+    },
+    [user, localDataReady, reload, fetchTransactions]
+  );
 
-  const updateRule = useCallback(async (id: string, data: Partial<RecurringInput>) => {
-    try {
-      const patch: any = {};
-      if (data.type           !== undefined) patch.type           = data.type;
-      if (data.description    !== undefined) patch.description    = data.description;
-      if (data.amount         !== undefined) patch.amount         = data.amount;
-      if (data.category       !== undefined) patch.category       = data.category;
-      if (data.categoryIcon   !== undefined) patch.category_icon  = data.categoryIcon;
-      if (data.categoryColor  !== undefined) patch.category_color = data.categoryColor;
-      if (data.paymentMethod  !== undefined) patch.payment_method = data.paymentMethod;
-      if (data.dayOfMonth     !== undefined) patch.day_of_month   = data.dayOfMonth;
-      if (data.frequency      !== undefined) patch.frequency      = data.frequency;
-      if (data.active         !== undefined) patch.active         = data.active;
-      patch.updated_at = new Date().toISOString();
+  const updateRule = useCallback(
+    async (id: string, data: Partial<RecurringInput>) => {
+      if (!localDataReady) return;
+      try {
+        await localDb.updateRecurringRow(id, {
+          type: data.type,
+          description: data.description,
+          amount: data.amount,
+          category: data.category,
+          categoryIcon: data.categoryIcon,
+          categoryColor: data.categoryColor,
+          paymentMethod: data.paymentMethod,
+          dayOfMonth: data.dayOfMonth,
+          frequency: data.frequency,
+          active: data.active,
+          startsOn: data.startsOn,
+        });
+        const updated = rules.find(r => r.id === id);
+        if (updated) {
+          await syncRecurringProjectedTransactions({
+            ...updated,
+            ...data,
+            type: data.type ?? updated.type,
+            description: data.description ?? updated.description,
+            amount: data.amount ?? updated.amount,
+            category: data.category ?? updated.category,
+            categoryIcon: data.categoryIcon ?? updated.categoryIcon,
+            categoryColor: data.categoryColor ?? updated.categoryColor,
+            paymentMethod: data.paymentMethod ?? updated.paymentMethod,
+            dayOfMonth: data.dayOfMonth ?? updated.dayOfMonth,
+            frequency: data.frequency ?? updated.frequency,
+            active: data.active ?? updated.active,
+            startsOn: data.startsOn ?? updated.startsOn,
+          });
+        }
+        if (user) scheduleSync(user.id);
+        await fetchTransactions();
+        await reload();
+      } catch (err: unknown) {
+        Alert.alert('Erro ao atualizar', err instanceof Error ? err.message : 'Erro desconhecido');
+      }
+    },
+    [localDataReady, reload, user, rules, fetchTransactions]
+  );
 
-      const { error } = await supabase.from('recurring_rules').update(patch).eq('id', id);
-      if (error) throw error;
-      await reload();
-    } catch (err: any) {
-      Alert.alert('Erro ao atualizar', err.message);
-    }
-  }, [reload]);
+  const deleteRule = useCallback(
+    async (id: string) => {
+      if (!localDataReady) return;
+      try {
+        await localDb.deleteUnpaidRecurringTxsForRule(id);
+        await localDb.deleteRecurringRow(id);
+        if (user) scheduleSync(user.id);
+        await fetchTransactions();
+        setRules(prev => prev.filter(r => r.id !== id));
+      } catch (err: unknown) {
+        Alert.alert('Erro ao excluir', err instanceof Error ? err.message : 'Erro desconhecido');
+      }
+    },
+    [localDataReady, user, fetchTransactions]
+  );
 
-  const deleteRule = useCallback(async (id: string) => {
-    try {
-      const { error } = await supabase.from('recurring_rules').delete().eq('id', id);
-      if (error) throw error;
-      setRules(prev => prev.filter(r => r.id !== id));
-    } catch (err: any) {
-      Alert.alert('Erro ao excluir', err.message);
-    }
-  }, []);
+  const toggleActive = useCallback(
+    async (id: string) => {
+      const rule = rules.find(r => r.id === id);
+      if (!rule) return;
+      await updateRule(id, { active: !rule.active });
+    },
+    [rules, updateRule]
+  );
 
-  const toggleActive = useCallback(async (id: string) => {
-    const rule = rules.find(r => r.id === id);
-    if (!rule) return;
-    await updateRule(id, { active: !rule.active });
-  }, [rules, updateRule]);
+  const confirmRule = useCallback(
+    async (rule: RecurringRule) => {
+      if (!user || !localDataReady) return;
+      try {
+        if (!isRuleActiveInCurrentMonth(rule)) {
+          Alert.alert(
+            'Ainda não vigente',
+            `Esta recorrência começa em ${rule.startsOn.split('-').reverse().join('/')}.`
+          );
+          return;
+        }
+        const som = startOfCurrentMonth();
+        const txDate = confirmDateForRule(rule);
+        const yearMonth = som.slice(0, 7);
+        await localDb.updateRecurringRow(rule.id, { lastConfirmed: som });
 
-  const confirmRule = useCallback(async (rule: RecurringRule) => {
-    if (!user) return;
-    try {
-      const som = startOfCurrentMonth();
+        const txs = await localDb.listTransactions();
+        const existing = txs.find(t => transactionMatchesRuleMonth(t, rule.id, yearMonth));
 
-      // 1. Atualiza last_confirmed no banco
-      const { error: ruleError } = await supabase
-        .from('recurring_rules')
-        .update({ last_confirmed: som, updated_at: new Date().toISOString() })
-        .eq('id', rule.id);
-      if (ruleError) throw ruleError;
+        if (existing) {
+          await localDb.updateTransaction(existing.id, { isPaid: true, date: txDate });
+        } else {
+          await localDb.insertTransaction({
+            ...buildProjectedTransaction(rule, txDate),
+            isPaid: true,
+          });
+        }
 
-      // 2. Cria a transação real
-      await addTransaction({
-        type:          rule.type,
-        amount:        rule.amount,
-        description:   rule.description,
-        category:      rule.category,
-        categoryIcon:  rule.categoryIcon,
-        categoryColor: rule.categoryColor,
-        paymentMethod: rule.paymentMethod,
-        date:          todayStr(),
-        isFixed:       true,
-      });
-
-      // 3. Atualiza estado local imediatamente (sem reload completo)
-      setRules(prev =>
-        prev.map(r => r.id === rule.id
-          ? { ...r, lastConfirmed: som, confirmedThisMonth: true }
-          : r
-        )
-      );
-    } catch (err: any) {
-      Alert.alert('Erro ao confirmar', err.message);
-    }
-  }, [user, addTransaction]);
+        scheduleSync(user.id);
+        await fetchTransactions();
+        setRules(prev =>
+          prev.map(r =>
+            r.id === rule.id ? { ...r, lastConfirmed: som, confirmedThisMonth: true } : r
+          )
+        );
+      } catch (err: unknown) {
+        Alert.alert('Erro ao confirmar', err instanceof Error ? err.message : 'Erro desconhecido');
+      }
+    },
+    [user, localDataReady, fetchTransactions]
+  );
 
   return (
-    <RecurringContext.Provider value={{ rules, loading, addRule, updateRule, deleteRule, toggleActive, confirmRule, reload }}>
+    <RecurringContext.Provider
+      value={{ rules, loading, addRule, updateRule, deleteRule, toggleActive, confirmRule, reload }}
+    >
       {children}
     </RecurringContext.Provider>
   );

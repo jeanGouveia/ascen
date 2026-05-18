@@ -2,6 +2,9 @@
   "expo": {
     "name": "ascen",
     "slug": "ascen",
+    "androidStatusBar": {
+      "translucent": true
+    },
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -41,6 +44,7 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "extra": {},
     "plugins": [
       "expo-font",
       "expo-secure-store",

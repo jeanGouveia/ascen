@@ -42,6 +42,7 @@ import { PAYMENT_METHODS } from '../constants/finance';
 import { TxType } from '../types';
 import { useRecurring, RecurringRule, RecurringInput, RecurringFrequency } from '../context/RecurringContext';
 import { useCategories } from '../context/CategoryContext';
+import { isRuleActiveInCurrentMonth } from '../utils/recurringDates';
 
 // ─── TIPOS ───────────────────────────────────────────────────
 
@@ -85,7 +86,8 @@ interface RuleCardProps {
 function RuleCard({ ls, rule, onConfirm, onEdit, onToggle, onDelete }: RuleCardProps) {
   const { C } = useAppTheme();
   const isIncome    = rule.type === 'income';
-  const isDue       = !rule.confirmedThisMonth && !rule.skippedThisMonth && rule.active;
+  const isDue =
+    rule.active && !rule.confirmedThisMonth && !rule.skippedThisMonth && isRuleActiveInCurrentMonth(rule);
   const isConfirmed = rule.confirmedThisMonth;
 
   return (
@@ -198,6 +200,7 @@ function RuleForm({ visible, editing, onSave, onClose, ls }: RuleFormProps) {
   const [day, setDay]             = useState('5');
   const [freq, setFreq]           = useState<RecurringFrequency>('monthly');
   const [active, setActive]       = useState(true);
+  const [startsOn, setStartsOn]   = useState(todayStr());
 
   // Preenche ao editar
   useEffect(() => {
@@ -213,10 +216,12 @@ function RuleForm({ visible, editing, onSave, onClose, ls }: RuleFormProps) {
         setDay(String(editing.dayOfMonth));
         setFreq(editing.frequency);
         setActive(editing.active);
+        setStartsOn(editing.startsOn);
       } else {
         setType('expense'); setDesc(''); setAmount(''); setCategory('');
         setCatIcon('📦'); setCatColor(C.textMuted); setPayMethod('Débito automático');
         setDay('5'); setFreq('monthly'); setActive(true);
+        setStartsOn(todayStr());
       }
     }
   }, [visible, editing]);
@@ -231,10 +236,15 @@ function RuleForm({ visible, editing, onSave, onClose, ls }: RuleFormProps) {
     if (!parsed || parsed <= 0)          { Alert.alert('Valor inválido',    'Informe um valor maior que zero.'); return; }
     if (!dayNum || dayNum < 1 || dayNum > 28) { Alert.alert('Dia inválido', 'Informe um dia entre 1 e 28.'); return; }
 
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(startsOn)) {
+      Alert.alert('Data inválida', 'Use o formato AAAA-MM-DD para início da recorrência.');
+      return;
+    }
+
     onSave({
       type, description: desc.trim(), amount: parsed,
       category: category || 'Outros', categoryIcon: catIcon, categoryColor: catColor,
-      paymentMethod: payMethod, dayOfMonth: dayNum, frequency: freq, active,
+      paymentMethod: payMethod, dayOfMonth: dayNum, frequency: freq, active, startsOn,
     });
   };
 
@@ -291,6 +301,21 @@ function RuleForm({ visible, editing, onSave, onClose, ls }: RuleFormProps) {
               />
             </View>
 
+            <View style={s.formGroup}>
+              <Text style={s.formLabel}>VÁLIDA A PARTIR DE</Text>
+              <Text style={{ fontSize: 12, color: C.textMuted, marginBottom: 6 }}>
+                Só gera lançamentos a partir desta data (não retroage meses anteriores).
+              </Text>
+              <TextInput
+                style={s.textInput}
+                value={startsOn}
+                onChangeText={setStartsOn}
+                placeholder="AAAA-MM-DD"
+                placeholderTextColor={C.textMuted}
+                keyboardType="numbers-and-punctuation"
+              />
+            </View>
+
             {/* Valor */}
             <View style={s.formGroup}>
               <Text style={s.formLabel}>VALOR (R$)</Text>
@@ -344,7 +369,7 @@ function RuleForm({ visible, editing, onSave, onClose, ls }: RuleFormProps) {
                 <View style={{ paddingLeft: 20, flexDirection: 'row', gap: 8 }}>
                   {filteredCats.map(cat => (
                     <TouchableOpacity
-                      key={cat.name}
+                      key={cat.id}
                       onPress={() => { setCategory(cat.name); setCatIcon(cat.icon); setCatColor(cat.color); }}
                       activeOpacity={0.7}
                       style={[s.catChip, category === cat.name && { borderColor: cat.color, backgroundColor: cat.color + '22' }]}
@@ -412,11 +437,16 @@ export function RecurringScreen() {
   const activeRules  = rules.filter(r => r.active);
   const totalExpense = activeRules.filter(r => r.type === 'expense').reduce((s, r) => s + r.amount, 0);
   const totalIncome  = activeRules.filter(r => r.type === 'income').reduce((s, r) => s + r.amount, 0);
-  const pendingCount = activeRules.filter(r => !r.confirmedThisMonth && !r.skippedThisMonth).length;
+  const pendingCount = activeRules.filter(
+    r => !r.confirmedThisMonth && !r.skippedThisMonth && isRuleActiveInCurrentMonth(r)
+  ).length;
 
   // Lista filtrada
   const filtered = rules.filter(r => filterType === 'all' || r.type === filterType);
-  const pending   = filtered.filter(r => r.active && !r.confirmedThisMonth && !r.skippedThisMonth);
+  const pending   = filtered.filter(
+    r => r.active && !r.confirmedThisMonth && !r.skippedThisMonth && isRuleActiveInCurrentMonth(r)
+  );
+  const upcoming  = filtered.filter(r => r.active && !isRuleActiveInCurrentMonth(r));
   const confirmed = filtered.filter(r => r.confirmedThisMonth);
   const paused    = filtered.filter(r => !r.active);
 
@@ -538,6 +568,25 @@ export function RecurringScreen() {
                   rule={rule}
                   onConfirm={handleConfirm} onEdit={handleEdit}
                   onToggle={handleToggle}   onDelete={handleDelete}
+                />
+              ))}
+            </View>
+          </View>
+        )}
+
+        {upcoming.length > 0 && (
+          <View style={{ marginBottom: 24 }}>
+            <Text style={ls.groupLabel}>INÍCIO FUTURO</Text>
+            <View style={{ gap: 12 }}>
+              {upcoming.map(rule => (
+                <RuleCard
+                  key={rule.id}
+                  ls={ls}
+                  rule={rule}
+                  onConfirm={handleConfirm}
+                  onEdit={handleEdit}
+                  onToggle={handleToggle}
+                  onDelete={handleDelete}
                 />
               ))}
             </View>

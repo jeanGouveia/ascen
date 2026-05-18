@@ -11,6 +11,7 @@ export interface Transaction {
   category: string;
   categoryIcon: string;
   categoryColor: string;
+  categoryId?: string;
   date: string;
   paymentMethod: string;
   isInstallment?: boolean;
