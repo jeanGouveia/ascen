@@ -43,7 +43,7 @@ echo "→ Metro OK. Compilando e instalando…"
 npx expo run:android --no-bundler "$@"
 
 echo "→ Abrindo app em localhost:${METRO_PORT}…"
-adb shell am force-stop com.anonymous.ascen 2>/dev/null || true
+adb shell am force-stop com.valtun.ascen 2>/dev/null || true
 adb shell am start -a android.intent.action.VIEW -d "${DEEP_LINK}"
 
 echo ""

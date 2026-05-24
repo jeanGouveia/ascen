@@ -6,13 +6,20 @@ import { useAppTheme } from '../hooks/useAppTheme';
 import { formatBRL, formatDate, currentMonthName } from '../utils/helpers';
 import { Card, EmptyState, TxCard, FAB } from '../components/Shared';
 import { useApp } from '../context/AppContext';
+import { useRecurring } from '../context/RecurringContext';
+import { isRuleActiveInCurrentMonth } from '../utils/recurringDates';
 import { Transaction } from '../types';
 
 export function TransactionsScreen() {
   const navigation = useNavigation<any>();
   const { C, s } = useAppTheme();
   const { transactions } = useApp();
+  const { rules } = useRecurring();
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all');
+
+  const recurringThisMonth = rules.filter(r => r.active && isRuleActiveInCurrentMonth(r));
+  const recurringPending = recurringThisMonth.filter(r => !r.confirmedThisMonth);
+  const recurringConfirmed = recurringThisMonth.filter(r => r.confirmedThisMonth);
 
   const FILTERS = [
     { key: 'all'     as const, label: 'Todos',      color: C.primary },
@@ -20,7 +27,12 @@ export function TransactionsScreen() {
     { key: 'expense' as const, label: '⬇ Saídas',   color: C.danger  },
   ];
 
-  const filtered = transactions.filter(t => filter === 'all' || t.type === filter).sort((a, b) => b.date.localeCompare(a.date));
+  const filtered = transactions
+    .filter(t => {
+      if (t.isFixed && !t.isPaid && t.notes?.startsWith('recurring_rule:')) return false;
+      return filter === 'all' || t.type === filter;
+    })
+    .sort((a, b) => b.date.localeCompare(a.date));
   const grouped: Record<string, Transaction[]> = {};
   filtered.forEach(tx => { const k = formatDate(tx.date); if (!grouped[k]) grouped[k] = []; grouped[k].push(tx); });
 
@@ -49,6 +61,94 @@ export function TransactionsScreen() {
             </View>
             <Text style={{ color: C.textMuted, fontSize: 20 }}>›</Text>
           </TouchableOpacity>
+
+          {recurringPending.length > 0 && (
+            <View
+              style={{ borderTopWidth: 1, borderTopColor: C.divider, paddingTop: 10, marginTop: 4, gap: 6 }}
+            >
+              {recurringPending.map(rule => (
+                <View
+                  key={rule.id}
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    paddingHorizontal: 4,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Text style={{ fontSize: 16 }}>{rule.categoryIcon}</Text>
+                    <Text style={s.txMeta}>{rule.description}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={[s.txMeta, { color: rule.type === 'expense' ? C.danger : C.success }]}>
+                      {rule.type === 'expense' ? '- ' : '+ '}
+                      {formatBRL(rule.amount)}
+                    </Text>
+                    <View
+                      style={{
+                        backgroundColor: C.dangerLight,
+                        borderRadius: 6,
+                        paddingHorizontal: 6,
+                        paddingVertical: 2,
+                      }}
+                    >
+                      <Text style={{ color: C.danger, fontSize: 10, fontWeight: '700' }}>PENDENTE</Text>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {recurringConfirmed.length > 0 && (
+            <View
+              style={{ borderTopWidth: 1, borderTopColor: C.divider, paddingTop: 10, marginTop: 4, gap: 6 }}
+            >
+              {recurringConfirmed.map(rule => (
+                <View
+                  key={rule.id}
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    paddingHorizontal: 4,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Text style={{ fontSize: 16 }}>{rule.categoryIcon}</Text>
+                    <Text style={s.txMeta}>{rule.description}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={[s.txMeta, { color: rule.type === 'expense' ? C.danger : C.success }]}>
+                      {rule.type === 'expense' ? '- ' : '+ '}
+                      {formatBRL(rule.amount)}
+                    </Text>
+                    <View
+                      style={{
+                        backgroundColor: C.successLight,
+                        borderRadius: 6,
+                        paddingHorizontal: 6,
+                        paddingVertical: 2,
+                      }}
+                    >
+                      <Text style={{ color: C.success, fontSize: 10, fontWeight: '700' }}>
+                        {rule.type === 'expense' ? '✓ PAGO' : '✓ RECEBIDO'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {recurringThisMonth.length === 0 && (
+            <View
+              style={{ borderTopWidth: 1, borderTopColor: C.divider, paddingTop: 10, marginTop: 4, paddingHorizontal: 4 }}
+            >
+              <Text style={[s.txMeta, { color: C.textMuted }]}>Nenhuma recorrência ativa este mês</Text>
+            </View>
+          )}
         </Card>
 
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>

@@ -9,7 +9,10 @@ import {
   Image,
   ActivityIndicator,
   TextInput,
+  Linking,
 } from 'react-native';
+import * as StoreReview from 'expo-store-review';
+import Constants from 'expo-constants';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -84,7 +87,7 @@ export function ProfileScreen() {
         {
           icon: '🔔',
           label: 'Alertas e lembretes',
-          sub: 'Interruptor geral e futuras opções',
+          sub: 'Lembretes de vencimentos e recebimentos',
           route: 'NotificationSettings',
         },
       ],
@@ -96,8 +99,22 @@ export function ProfileScreen() {
     {
       title: 'SUPORTE',
       items: [
-        { icon: '❓', label: 'Ajuda', sub: 'Como usar o Ascen', route: null },
-        { icon: '⭐', label: 'Avaliar o app', sub: 'Nos ajude a melhorar', route: null },
+        { icon: '❓', label: 'Ajuda', sub: 'Como usar o Ascen', route: 'Ajuda' },
+        {
+          icon: '⭐',
+          label: 'Avaliar o app',
+          sub: 'Nos ajude a melhorar',
+          route: null,
+          onPress: async () => {
+            if (await StoreReview.hasAction()) {
+              await StoreReview.requestReview();
+            } else {
+              await Linking.openURL(
+                'https://play.google.com/store/apps/details?id=com.valtun.ascen'
+              );
+            }
+          },
+        },
       ],
     },
   ];
@@ -105,7 +122,7 @@ export function ProfileScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top']}>
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-        <Text style={[s.pageTitle, { marginBottom: 4 }]}>Configurações</Text>
+        <Text style={[s.pageTitle, { marginBottom: 4 }]}>Ajustes</Text>
         <Text style={[s.pageSubtitle, { marginBottom: 16 }]}>Conta e preferências</Text>
 
         {busy && (
@@ -205,11 +222,11 @@ export function ProfileScreen() {
         <Card style={{ marginBottom: 14 }}>
           <Text style={[s.formLabel, { marginBottom: 12 }]}>TAMANHO DA FONTE (ACESSIBILIDADE)</Text>
           <View
-            style={{ flexDirection: 'row', gap: 8 }}
+            style={{ flexDirection: 'row', gap: 6 }}
             accessibilityRole="radiogroup"
             accessibilityLabel="Tamanho da fonte"
           >
-            {(['small', 'medium', 'large'] as const).map(sz => (
+            {(['small', 'medium', 'large', 'xlarge'] as const).map(sz => (
               <TouchableOpacity
                 key={sz}
                 onPress={() => setFontScale(sz)}
@@ -217,22 +234,37 @@ export function ProfileScreen() {
                 accessibilityRole="radio"
                 accessibilityState={{ selected: fontScale === sz }}
                 accessibilityLabel={
-                  sz === 'small' ? 'Fonte pequena' : sz === 'medium' ? 'Fonte média' : 'Fonte grande'
+                  sz === 'small'
+                    ? 'Fonte pequena'
+                    : sz === 'medium'
+                      ? 'Fonte média'
+                      : sz === 'large'
+                        ? 'Fonte grande'
+                        : 'Fonte extra grande'
                 }
                 style={[
                   s.chip,
-                  { flex: 1, justifyContent: 'center' },
+                  { flex: 1, justifyContent: 'center', paddingHorizontal: 6 },
                   fontScale === sz && { backgroundColor: C.primary, borderColor: C.primary },
                 ]}
               >
                 <Text
                   style={[
                     s.chipText,
-                    { fontSize: sz === 'small' ? 13 : sz === 'large' ? 17 : 15 },
+                    {
+                      fontSize:
+                        sz === 'small' ? 12 : sz === 'medium' ? 14 : sz === 'large' ? 16 : 18,
+                    },
                     fontScale === sz && { color: '#fff' },
                   ]}
                 >
-                  {sz === 'small' ? 'Pequena' : sz === 'medium' ? 'Média' : 'Grande'}
+                  {sz === 'small'
+                    ? 'Pequena'
+                    : sz === 'medium'
+                      ? 'Média'
+                      : sz === 'large'
+                        ? 'Grande'
+                        : 'Extra'}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -303,7 +335,7 @@ export function ProfileScreen() {
         </TouchableOpacity>
 
         <Text style={{ textAlign: 'center', color: C.textMuted, fontSize: 12, marginTop: 24 }}>
-          Ascen v1.0.0 · Feito com ❤️ no Brasil
+          Ascen v{Constants.expoConfig?.version ?? '1.0.0'} · Feito com ❤️ no Brasil
         </Text>
       </ScrollView>
     </SafeAreaView>

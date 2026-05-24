@@ -25,13 +25,40 @@ export function ProgressBar({ value, color, height = 8 }: { value: number; color
   );
 }
 
-export function EmptyState({ icon, title, subtitle }: { icon: string; title: string; subtitle?: string }) {
-  const { s } = useAppTheme();
+export function EmptyState({
+  icon,
+  title,
+  subtitle,
+  actionLabel,
+  onAction,
+}: {
+  icon: string;
+  title: string;
+  subtitle?: string;
+  actionLabel?: string;
+  onAction?: () => void;
+}) {
+  const { C, s } = useAppTheme();
   return (
-    <View style={s.emptyState}>
-      <Text style={{ fontSize: 52, marginBottom: 12 }}>{icon}</Text>
+    <View style={{ alignItems: 'center', paddingVertical: 48, gap: 8 }}>
+      <Text style={{ fontSize: 48 }}>{icon}</Text>
       <Text style={s.emptyTitle}>{title}</Text>
-      {subtitle ? <Text style={s.emptySubtitle}>{subtitle}</Text> : null}
+      {subtitle && <Text style={s.emptySubtitle}>{subtitle}</Text>}
+      {actionLabel && onAction && (
+        <TouchableOpacity
+          onPress={onAction}
+          activeOpacity={0.8}
+          style={{
+            marginTop: 12,
+            backgroundColor: C.primary,
+            borderRadius: 12,
+            paddingHorizontal: 24,
+            paddingVertical: 12,
+          }}
+        >
+          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>{actionLabel}</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -40,7 +67,13 @@ export function FAB() {
   const { openTxModal } = useApp();
   const { s } = useAppTheme();
   return (
-    <TouchableOpacity onPress={() => openTxModal()} activeOpacity={0.85} style={s.fab}>
+    <TouchableOpacity
+      onPress={() => openTxModal()}
+      activeOpacity={0.85}
+      style={s.fab}
+      accessibilityRole="button"
+      accessibilityLabel="Adicionar novo lançamento"
+    >
       <Text style={{ color: '#fff', fontSize: 30, lineHeight: 34, fontWeight: '300' }}>+</Text>
     </TouchableOpacity>
   );

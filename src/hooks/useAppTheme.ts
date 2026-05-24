@@ -6,6 +6,7 @@ import type { ThemedStyles } from '../styles/theme';
 function fontMultiplier(scale: FontScale): number {
   if (scale === 'small') return 0.92;
   if (scale === 'large') return 1.1;
+  if (scale === 'xlarge') return 1.22;
   return 1;
 }
 

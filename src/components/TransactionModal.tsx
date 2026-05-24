@@ -186,7 +186,12 @@ export function TransactionModal({
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View style={s.modalHeader}>
-            <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <TouchableOpacity
+              onPress={onClose}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel="Fechar lançamento"
+            >
               <Text style={{ fontSize: 16, color: C.textMid }}>Cancelar</Text>
             </TouchableOpacity>
             <Text style={s.modalTitle}>Novo Lançamento</Text>
@@ -195,6 +200,8 @@ export function TransactionModal({
               disabled={saving}
               style={[s.modalSaveBtn, { backgroundColor: type === 'income' ? C.success : C.danger, opacity: saving ? 0.6 : 1 }]}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Salvar lançamento"
             >
               <Text style={{ fontSize: 15, color: '#fff', fontWeight: '700' }}>{saving ? '…' : 'Salvar'}</Text>
             </TouchableOpacity>

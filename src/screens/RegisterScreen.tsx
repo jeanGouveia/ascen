@@ -3,11 +3,10 @@
 // Cole em: ascen/screens/RegisterScreen.tsx
 // ============================================================
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   KeyboardAvoidingView,
@@ -19,6 +18,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
+import { FormInput } from '../components/FormInput';
+import { LegalFooter } from '../components/LegalFooter';
 import { C_light as C, R } from '../styles/theme';
 
 // Indicador de força de senha
@@ -50,55 +51,6 @@ function PasswordStrength({ password }: { password: string }) {
   );
 }
 
-interface InputProps {
-  label:       string;
-  value:       string;
-  onChange:    (v: string) => void;
-  placeholder: string;
-  secure?:     boolean;
-  keyboard?:   'default' | 'email-address';
-  error?:      string;
-  autoCapitalize?: 'none' | 'sentences' | 'words';
-  hint?:       string;
-}
-
-function FormInput({ label, value, onChange, placeholder, secure, keyboard, error, autoCapitalize = 'none', hint }: InputProps) {
-  const [hidden, setHidden] = useState(secure ?? false);
-  const [focused, setFocused] = useState(false);
-
-  return (
-    <View style={{ marginBottom: 16 }}>
-      <Text style={s.inputLabel}>{label}</Text>
-      <View style={[
-        s.inputWrap,
-        focused && { borderColor: C.primary },
-        error  && { borderColor: C.danger },
-      ]}>
-        <TextInput
-          style={s.input}
-          value={value}
-          onChangeText={onChange}
-          placeholder={placeholder}
-          placeholderTextColor={C.textMuted}
-          secureTextEntry={hidden}
-          keyboardType={keyboard ?? 'default'}
-          autoCapitalize={autoCapitalize}
-          autoCorrect={false}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-        />
-        {secure && (
-          <TouchableOpacity onPress={() => setHidden(h => !h)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={{ fontSize: 18, marginLeft: 8 }}>{hidden ? '👁' : '🙈'}</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-      {error ? <Text style={s.inputError}>{error}</Text> : null}
-      {hint && !error ? <Text style={s.inputHint}>{hint}</Text> : null}
-    </View>
-  );
-}
-
 interface Props {
   onNavigateLogin: () => void;
 }
@@ -116,6 +68,47 @@ export function RegisterScreen({ onNavigateLogin }: Props) {
   const [done, setDone]                   = useState(false);
 
   const shakeAnim = useRef(new Animated.Value(0)).current;
+
+  const clearError = useCallback((key: string) => {
+    setErrors(prev => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }, []);
+
+  const handleNameChange = useCallback(
+    (v: string) => {
+      setName(v);
+      clearError('name');
+    },
+    [clearError]
+  );
+
+  const handleEmailChange = useCallback(
+    (v: string) => {
+      setEmail(v);
+      clearError('email');
+    },
+    [clearError]
+  );
+
+  const handlePasswordChange = useCallback(
+    (v: string) => {
+      setPassword(v);
+      clearError('password');
+    },
+    [clearError]
+  );
+
+  const handleConfirmChange = useCallback(
+    (v: string) => {
+      setConfirm(v);
+      clearError('confirm');
+    },
+    [clearError]
+  );
 
   function shake() {
     Animated.sequence([
@@ -198,7 +191,11 @@ export function RegisterScreen({ onNavigateLogin }: Props) {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top', 'bottom']}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
         <ScrollView
           contentContainerStyle={s.scroll}
           keyboardShouldPersistTaps="handled"
@@ -227,7 +224,7 @@ export function RegisterScreen({ onNavigateLogin }: Props) {
               <FormInput
                 label="Nome completo"
                 value={name}
-                onChange={v => { setName(v); setErrors(e => ({ ...e, name: undefined! })); }}
+                onChange={handleNameChange}
                 placeholder="Como quer ser chamado?"
                 autoCapitalize="words"
                 error={errors.name}
@@ -235,7 +232,7 @@ export function RegisterScreen({ onNavigateLogin }: Props) {
               <FormInput
                 label="E-mail"
                 value={email}
-                onChange={v => { setEmail(v); setErrors(e => ({ ...e, email: undefined! })); }}
+                onChange={handleEmailChange}
                 placeholder="seu@email.com"
                 keyboard="email-address"
                 error={errors.email}
@@ -243,7 +240,7 @@ export function RegisterScreen({ onNavigateLogin }: Props) {
               <FormInput
                 label="Senha"
                 value={password}
-                onChange={v => { setPassword(v); setErrors(e => ({ ...e, password: undefined! })); }}
+                onChange={handlePasswordChange}
                 placeholder="Mínimo 6 caracteres"
                 secure
                 error={errors.password}
@@ -255,7 +252,7 @@ export function RegisterScreen({ onNavigateLogin }: Props) {
                 <FormInput
                   label="Confirmar senha"
                   value={confirm}
-                  onChange={v => { setConfirm(v); setErrors(e => ({ ...e, confirm: undefined! })); }}
+                  onChange={handleConfirmChange}
                   placeholder="Digite a senha novamente"
                   secure
                   error={errors.confirm}
@@ -306,10 +303,7 @@ export function RegisterScreen({ onNavigateLogin }: Props) {
             </TouchableOpacity>
           </View>
 
-          <Text style={s.legal}>
-            Ao criar uma conta, você concorda com nossos{'\n'}
-            Termos de Uso e Política de Privacidade.
-          </Text>
+          <LegalFooter prefix="Ao criar uma conta, você concorda com nossos" />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -330,12 +324,6 @@ const s = StyleSheet.create({
   formTitle:   { fontSize: 20, fontWeight: '800', color: C.text, letterSpacing: -0.5 },
   formSubtitle:{ fontSize: 14, color: C.textMuted, marginTop: 4 },
 
-  inputLabel: { fontSize: 12, fontWeight: '700', color: C.textMuted, letterSpacing: 0.8, marginBottom: 8, textTransform: 'uppercase' },
-  inputWrap:  { flexDirection: 'row', alignItems: 'center', backgroundColor: C.bg, borderWidth: 2, borderColor: '#E4E9F8', borderRadius: 16, paddingHorizontal: 16 },
-  input:      { flex: 1, fontSize: 16, color: C.text, paddingVertical: 14, fontWeight: '500' },
-  inputError: { fontSize: 12, color: C.danger, marginTop: 5, marginLeft: 4, fontWeight: '500' },
-  inputHint:  { fontSize: 12, color: C.textMuted, marginTop: 5, marginLeft: 4 },
-
   primaryBtn:     { backgroundColor: C.primary, borderRadius: R.full, padding: 16, alignItems: 'center', shadowColor: C.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12, elevation: 6 },
   primaryBtnText: { color: '#fff', fontSize: 17, fontWeight: '800', letterSpacing: 0.3 },
 
@@ -350,5 +338,4 @@ const s = StyleSheet.create({
   footerText: { fontSize: 15, color: C.textMuted },
   footerLink: { fontSize: 15, color: C.primary, fontWeight: '700' },
 
-  legal: { textAlign: 'center', fontSize: 11, color: C.textMuted, marginTop: 20, lineHeight: 16 },
 });

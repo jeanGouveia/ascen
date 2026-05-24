@@ -3,11 +3,10 @@
 // Cole em: ascen/screens/LoginScreen.tsx
 // ============================================================
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   KeyboardAvoidingView,
@@ -16,62 +15,13 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
-  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../services/supabase';
+import { FormInput } from '../components/FormInput';
+import { LegalFooter } from '../components/LegalFooter';
 import { C_light as C, R } from '../styles/theme';
-
-const { width: W } = Dimensions.get('window');
-
-// ─── Componente de input com validação visual ─────────────────
-
-interface InputProps {
-  label:       string;
-  value:       string;
-  onChange:    (v: string) => void;
-  placeholder: string;
-  secure?:     boolean;
-  keyboard?:   'default' | 'email-address';
-  error?:      string;
-  autoCapitalize?: 'none' | 'sentences' | 'words';
-}
-
-function FormInput({ label, value, onChange, placeholder, secure, keyboard, error, autoCapitalize = 'none' }: InputProps) {
-  const [hidden, setHidden] = useState(secure ?? false);
-  const [focused, setFocused] = useState(false);
-
-  return (
-    <View style={{ marginBottom: 16 }}>
-      <Text style={s.inputLabel}>{label}</Text>
-      <View style={[
-        s.inputWrap,
-        focused && { borderColor: C.primary, shadowColor: C.primary, shadowOpacity: 0.15, shadowRadius: 8, elevation: 4 },
-        error  && { borderColor: C.danger },
-      ]}>
-        <TextInput
-          style={s.input}
-          value={value}
-          onChangeText={onChange}
-          placeholder={placeholder}
-          placeholderTextColor={C.textMuted}
-          secureTextEntry={hidden}
-          keyboardType={keyboard ?? 'default'}
-          autoCapitalize={autoCapitalize}
-          autoCorrect={false}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-        />
-        {secure && (
-          <TouchableOpacity onPress={() => setHidden(h => !h)} style={s.eyeBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={{ fontSize: 18 }}>{hidden ? '👁' : '🙈'}</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-      {error ? <Text style={s.inputError}>{error}</Text> : null}
-    </View>
-  );
-}
 
 // ─── Tela Principal ───────────────────────────────────────────
 
@@ -87,6 +37,16 @@ export function LoginScreen({ onNavigateRegister }: Props) {
   const [errors, setErrors]     = useState<{ email?: string; password?: string }>({});
   const [submitting, setSubmitting] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+
+  const handleEmailChange = useCallback((v: string) => {
+    setEmail(v);
+    setErrors(prev => (prev.email ? { ...prev, email: undefined } : prev));
+  }, []);
+
+  const handlePasswordChange = useCallback((v: string) => {
+    setPassword(v);
+    setErrors(prev => (prev.password ? { ...prev, password: undefined } : prev));
+  }, []);
 
   // Animação de shake para erro
   const shakeAnim = useRef(new Animated.Value(0)).current;
@@ -139,7 +99,11 @@ export function LoginScreen({ onNavigateRegister }: Props) {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top', 'bottom']}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
         <ScrollView
           contentContainerStyle={s.scroll}
           keyboardShouldPersistTaps="handled"
@@ -163,7 +127,7 @@ export function LoginScreen({ onNavigateRegister }: Props) {
               <FormInput
                 label="E-mail"
                 value={email}
-                onChange={v => { setEmail(v); setErrors(e => ({ ...e, email: undefined })); }}
+                onChange={handleEmailChange}
                 placeholder="seu@email.com"
                 keyboard="email-address"
                 error={errors.email}
@@ -171,14 +135,34 @@ export function LoginScreen({ onNavigateRegister }: Props) {
               <FormInput
                 label="Senha"
                 value={password}
-                onChange={v => { setPassword(v); setErrors(e => ({ ...e, password: undefined })); }}
+                onChange={handlePasswordChange}
                 placeholder="Mínimo 6 caracteres"
                 secure
                 error={errors.password}
               />
             </View>
 
-            <TouchableOpacity style={s.forgotBtn} onPress={() => Alert.alert('Recuperar senha', 'Enviamos um link de recuperação para o seu e-mail.')}>
+            <TouchableOpacity
+              style={s.forgotBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Recuperar senha"
+              onPress={async () => {
+                if (!email.trim()) {
+                  Alert.alert('Recuperar senha', 'Digite seu e-mail no campo acima antes de continuar.');
+                  return;
+                }
+                try {
+                  const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+                  if (error) throw error;
+                  Alert.alert(
+                    'E-mail enviado',
+                    'Se esse e-mail estiver cadastrado, você receberá um link para redefinir sua senha.'
+                  );
+                } catch (err) {
+                  Alert.alert('Erro', err instanceof Error ? err.message : 'Tente novamente.');
+                }
+              }}
+            >
               <Text style={s.forgotText}>Esqueceu a senha?</Text>
             </TouchableOpacity>
 
@@ -229,10 +213,7 @@ export function LoginScreen({ onNavigateRegister }: Props) {
             </TouchableOpacity>
           </View>
 
-          <Text style={s.legal}>
-            Ao entrar, você concorda com nossos{'\n'}
-            Termos de Uso e Política de Privacidade.
-          </Text>
+          <LegalFooter prefix="Ao entrar, você concorda com nossos" />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -302,48 +283,6 @@ const s = StyleSheet.create({
     fontSize: 14,
     color: C.textMuted,
     marginTop: 4,
-  },
-
-  // Inputs
-  inputLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: C.textMuted,
-    letterSpacing: 0.8,
-    marginBottom: 8,
-    textTransform: 'uppercase',
-  },
-  inputWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: C.bg,
-    borderWidth: 2,
-    borderColor: C.border,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    shadowColor: 'transparent',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    color: C.text,
-    paddingVertical: 14,
-    fontWeight: '500',
-  },
-  eyeBtn: {
-    padding: 4,
-    marginLeft: 8,
-  },
-  inputError: {
-    fontSize: 12,
-    color: C.danger,
-    marginTop: 5,
-    marginLeft: 4,
-    fontWeight: '500',
   },
 
   // Esqueci a senha
@@ -430,12 +369,4 @@ const s = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // Legal
-  legal: {
-    textAlign: 'center',
-    fontSize: 11,
-    color: C.textMuted,
-    marginTop: 20,
-    lineHeight: 16,
-  },
 });

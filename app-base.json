@@ -2,24 +2,25 @@
   "expo": {
     "name": "ascen",
     "slug": "ascen",
-    "androidStatusBar": {
-      "translucent": true
-    },
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "scheme": "ascen",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/splash-logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0A2FBF"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.ascen"
+      "bundleIdentifier": "com.valtun.ascen"
     },
     "android": {
+      "softwareKeyboardLayoutMode": "pan",
+      "navigationBar": {
+        "visible": "immersive"
+      },
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -27,7 +28,8 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.ascen",
+      "package": "com.valtun.ascen",
+      "versionCode": 1,
       "intentFilters": [
         {
           "action": "VIEW",
@@ -46,9 +48,33 @@
     },
     "extra": {},
     "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-logo.png",
+          "imageWidth": 240,
+          "resizeMode": "contain",
+          "backgroundColor": "#0A2FBF"
+        }
+      ],
+      "./plugins/withAscenSplashBackground",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/splash-logo.png",
+          "color": "#0A2FBF"
+        }
+      ],
       "expo-font",
       "expo-secure-store",
       "expo-web-browser",
+      "expo-sqlite",
+      [
+        "expo-status-bar", 
+        { 
+          "style": "auto", "translucent": true 
+        }
+      ],
       [
         "expo-image-picker",
         {

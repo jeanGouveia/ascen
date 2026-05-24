@@ -8,6 +8,8 @@ import {
   Modal,
   Alert,
   Pressable,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatBRL, formatDate, todayStr } from '../utils/helpers';
@@ -128,7 +130,13 @@ export function GoalsScreen() {
           <Text style={[s.txMeta, { marginTop: 24 }]}>Carregando…</Text>
         ) : goals.length === 0 ? (
           <View style={{ marginTop: 24 }}>
-            <EmptyState icon="🎯" title="Nenhuma meta" subtitle="Crie seu primeiro objetivo de poupança" />
+            <EmptyState
+              icon="🎯"
+              title="Nenhuma meta"
+              subtitle="Crie seu primeiro objetivo de poupança"
+              actionLabel="+ Criar meta"
+              onAction={openCreate}
+            />
           </View>
         ) : (
           <View style={{ marginTop: 20, gap: 14 }}>
@@ -137,6 +145,11 @@ export function GoalsScreen() {
               const remaining = goal.target - goal.current;
               return (
                 <Card key={goal.id}>
+                  <View
+                    accessible
+                    accessibilityRole="summary"
+                    accessibilityLabel={`Meta ${goal.name}, ${pct.toFixed(0)}% concluída, ${formatBRL(goal.current)} de ${formatBRL(goal.target)}`}
+                  >
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 }}>
                     <View style={[s.goalIconWrap, { backgroundColor: goal.color + '22' }]}>
                       <Text style={{ fontSize: 28 }}>{goal.icon}</Text>
@@ -181,6 +194,7 @@ export function GoalsScreen() {
                       <Text style={{ color: C.danger, fontWeight: '700' }}>🗑</Text>
                     </TouchableOpacity>
                   </View>
+                  </View>
                 </Card>
               );
             })}
@@ -193,35 +207,45 @@ export function GoalsScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      <Modal visible={!!depositTarget} animationType="fade" transparent onRequestClose={() => setDepositTarget(null)}>
-        <Pressable style={s.overlay} onPress={() => setDepositTarget(null)}>
-          <Pressable style={s.bottomSheet} onPress={e => e.stopPropagation()}>
-            <Text style={s.modalTitle}>Depositar em {depositTarget?.name}</Text>
-            <TextInput
-              style={[s.amountInput, { marginTop: 16 }]}
-              value={depositAmount}
-              onChangeText={setDepositAmount}
-              keyboardType="decimal-pad"
-              placeholder="Valor (R$)"
-              placeholderTextColor={C.textMuted}
-              autoFocus
-            />
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
-              <TouchableOpacity
-                onPress={() => setDepositTarget(null)}
-                style={[s.modalBtn, { backgroundColor: C.divider, flex: 1 }]}
-              >
-                <Text style={{ color: C.textMid, fontWeight: '600' }}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => void handleDeposit()}
-                style={[s.modalBtn, { backgroundColor: C.primary, flex: 1 }]}
-              >
-                <Text style={{ color: '#fff', fontWeight: '700' }}>Confirmar</Text>
-              </TouchableOpacity>
-            </View>
+      <Modal
+        visible={!!depositTarget}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setDepositTarget(null)}
+      >
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <Pressable style={s.overlay} onPress={() => setDepositTarget(null)}>
+            <Pressable style={s.bottomSheet} onPress={e => e.stopPropagation()}>
+              <Text style={s.modalTitle}>Depositar em {depositTarget?.name}</Text>
+              <TextInput
+                style={[s.amountInput, { marginTop: 16 }]}
+                value={depositAmount}
+                onChangeText={setDepositAmount}
+                keyboardType="decimal-pad"
+                placeholder="Valor (R$)"
+                placeholderTextColor={C.textMuted}
+                autoFocus
+              />
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+                <TouchableOpacity
+                  onPress={() => setDepositTarget(null)}
+                  style={[s.modalBtn, { backgroundColor: C.divider, flex: 1 }]}
+                >
+                  <Text style={{ color: C.textMid, fontWeight: '600' }}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => void handleDeposit()}
+                  style={[s.modalBtn, { backgroundColor: C.primary, flex: 1 }]}
+                >
+                  <Text style={{ color: '#fff', fontWeight: '700' }}>Confirmar</Text>
+                </TouchableOpacity>
+              </View>
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Modal visible={formVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setFormVisible(false)}>

@@ -35,8 +35,11 @@ export function assertGoogleAndroidClientIdConfigured(): string {
     throw new Error(
       'Falta EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID no .env.\n\n' +
         'Google Cloud → Credenciais → OAuth → Android\n' +
-        '• Pacote: com.anonymous.ascen\n' +
-        '• SHA-1 debug: 5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25\n\n' +
+        '• Pacote: com.valtun.ascen\n' +
+        '// SHA-1 para OAuth Android:\n' +
+        '// - Debug:   5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25\n' +
+        '// - Release: TODO — gerar keystore de release e registrar no Google Cloud Console\n' +
+        '//            (Credenciais → OAuth → Android → pacote: com.valtun.ascen)\n\n' +
         'Salve o .env e rode: npm run android'
     );
   }

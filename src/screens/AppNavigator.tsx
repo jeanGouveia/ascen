@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -13,14 +13,30 @@ import { RecurringScreen } from './RecurringScreen';
 import { EditProfileScreen } from './EditProfileScreen';
 import { ChangePasswordScreen } from './ChangePasswordScreen';
 import { NotificationSettingsScreen } from './NotificationSettingsScreen';
+import { HelpScreen } from './HelpScreen';
+import { useRecurring } from '../context/RecurringContext';
+import { usePreferences } from '../context/PreferencesContext';
+import { scheduleRecurringNotifications } from '../services/notificationScheduler';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
+function TabIcon({
+  emoji,
+  focused,
+  label,
+}: {
+  emoji: string;
+  focused: boolean;
+  label: string;
+}) {
   const { C, s } = useAppTheme();
   return (
-    <View style={[s.tabIconWrap, focused && { backgroundColor: C.primaryLight }]}>
+    <View
+      style={[s.tabIconWrap, focused && { backgroundColor: C.primaryLight }]}
+      accessibilityRole="image"
+      accessibilityLabel={label}
+    >
       <Text style={{ fontSize: 20 }}>{emoji}</Text>
     </View>
   );
@@ -28,6 +44,18 @@ function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
 
 function TabNavigator() {
   const { C, s } = useAppTheme();
+  const { rules } = useRecurring();
+  const { notificationsEnabled, notifyDayOf, notifyOneDayBefore, notifyFiveDaysBefore } = usePreferences();
+
+  useEffect(() => {
+    void scheduleRecurringNotifications(rules, {
+      notificationsEnabled,
+      notifyDayOf,
+      notifyOneDayBefore,
+      notifyFiveDaysBefore,
+    });
+  }, [rules, notificationsEnabled, notifyDayOf, notifyOneDayBefore, notifyFiveDaysBefore]);
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -39,14 +67,33 @@ function TabNavigator() {
         tabBarItemStyle: { paddingVertical: 4 },
       }}
     >
-      <Tab.Screen name="Início" component={HomeScreen} options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="🏠" focused={focused} /> }} />
-      <Tab.Screen name="Lançamentos" component={TransactionsScreen} options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="📋" focused={focused} /> }} />
-      <Tab.Screen name="Relatórios" component={ReportsScreen} options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="📊" focused={focused} /> }} />
-      <Tab.Screen name="Metas" component={GoalsScreen} options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="🎯" focused={focused} /> }} />
       <Tab.Screen
-        name="Configurações"
+        name="Início"
+        component={HomeScreen}
+        options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="🏠" focused={focused} label="Início" /> }}
+      />
+      <Tab.Screen
+        name="Lançamentos"
+        component={TransactionsScreen}
+        options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="📋" focused={focused} label="Lançamentos" /> }}
+      />
+      <Tab.Screen
+        name="Relatórios"
+        component={ReportsScreen}
+        options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="📊" focused={focused} label="Relatórios" /> }}
+      />
+      <Tab.Screen
+        name="Metas"
+        component={GoalsScreen}
+        options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="🎯" focused={focused} label="Metas" /> }}
+      />
+      <Tab.Screen
+        name="Ajustes"
         component={ProfileScreen}
-        options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="⚙️" focused={focused} /> }}
+        options={{
+          tabBarLabel: 'Ajustes',
+          tabBarIcon: ({ focused }) => <TabIcon emoji="⚙️" focused={focused} label="Ajustes" />,
+        }}
       />
     </Tab.Navigator>
   );
@@ -72,6 +119,11 @@ export function AppNavigator() {
         name="NotificationSettings"
         component={NotificationSettingsScreen}
         options={{ headerShown: true, title: 'Notificações', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="Ajuda"
+        component={HelpScreen}
+        options={{ headerShown: true, title: 'Ajuda', animation: 'slide_from_right' }}
       />
     </Stack.Navigator>
   );

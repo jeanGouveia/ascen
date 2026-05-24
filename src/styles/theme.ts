@@ -232,7 +232,7 @@ export function createThemedStyles(colors: AppColors, fontMult: number) {
       elevation: 8,
     },
 
-    tabBar: { backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.border, height: 64, paddingBottom: 8 },
+    tabBar: { backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.border, height: 64, paddingBottom: 12 },
     tabIconWrap: { width: 44, height: 34, borderRadius: R.md, alignItems: 'center', justifyContent: 'center' },
     tabLabel: { fontSize: f(11), fontWeight: '600' },
 

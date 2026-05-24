@@ -77,13 +77,14 @@ const FREQ_LABELS: Record<RecurringFrequency, string> = {
 interface RuleCardProps {
   ls: RecurringLocalStyles;
   rule: RecurringRule;
+  confirmedId: string | null;
   onConfirm: (rule: RecurringRule) => void;
   onEdit:    (rule: RecurringRule) => void;
   onToggle:  (rule: RecurringRule) => void;
   onDelete:  (rule: RecurringRule) => void;
 }
 
-function RuleCard({ ls, rule, onConfirm, onEdit, onToggle, onDelete }: RuleCardProps) {
+function RuleCard({ ls, rule, confirmedId, onConfirm, onEdit, onToggle, onDelete }: RuleCardProps) {
   const { C } = useAppTheme();
   const isIncome    = rule.type === 'income';
   const isDue =
@@ -95,6 +96,7 @@ function RuleCard({ ls, rule, onConfirm, onEdit, onToggle, onDelete }: RuleCardP
       ls.ruleCard,
       !rule.active && { opacity: 0.55 },
       isDue && { borderColor: isIncome ? C.success : C.warning, borderWidth: 1.5 },
+      confirmedId === rule.id && { borderColor: C.success, borderWidth: 2 },
     ]}>
       {/* Badge de vencimento */}
       {isDue && (
@@ -432,6 +434,7 @@ export function RecurringScreen() {
   const [formVisible, setFormVisible]   = useState(false);
   const [editingRule, setEditingRule]   = useState<RecurringRule | null>(null);
   const [filterType, setFilterType]     = useState<'all' | 'income' | 'expense'>('all');
+  const [confirmedId, setConfirmedId]   = useState<string | null>(null);
 
   // Resumo do mês
   const activeRules  = rules.filter(r => r.active);
@@ -451,16 +454,26 @@ export function RecurringScreen() {
   const paused    = filtered.filter(r => !r.active);
 
   // Confirmar: salva no banco e cria lançamento
-  const handleConfirm = useCallback((rule: RecurringRule) => {
-    Alert.alert(
-      rule.type === 'income' ? 'Marcar como recebido?' : 'Marcar como pago?',
-      `${rule.description} — ${formatBRL(rule.amount)}\n\nIsto vai criar um lançamento em Transações.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Confirmar', onPress: () => confirmRule(rule) },
-      ]
-    );
-  }, [confirmRule]);
+  const handleConfirm = useCallback(
+    (rule: RecurringRule) => {
+      Alert.alert(
+        rule.type === 'expense' ? 'Confirmar pagamento?' : 'Confirmar recebimento?',
+        `${rule.description} · ${rule.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Confirmar',
+            onPress: async () => {
+              await confirmRule(rule);
+              setConfirmedId(rule.id);
+              setTimeout(() => setConfirmedId(null), 2000);
+            },
+          },
+        ]
+      );
+    },
+    [confirmRule]
+  );
 
   const handleEdit = (rule: RecurringRule) => {
     setEditingRule(rule);
@@ -566,6 +579,7 @@ export function RecurringScreen() {
                   key={rule.id}
                   ls={ls}
                   rule={rule}
+                  confirmedId={confirmedId}
                   onConfirm={handleConfirm} onEdit={handleEdit}
                   onToggle={handleToggle}   onDelete={handleDelete}
                 />
@@ -583,6 +597,7 @@ export function RecurringScreen() {
                   key={rule.id}
                   ls={ls}
                   rule={rule}
+                  confirmedId={confirmedId}
                   onConfirm={handleConfirm}
                   onEdit={handleEdit}
                   onToggle={handleToggle}
@@ -603,6 +618,7 @@ export function RecurringScreen() {
                   key={rule.id}
                   ls={ls}
                   rule={rule}
+                  confirmedId={confirmedId}
                   onConfirm={handleConfirm} onEdit={handleEdit}
                   onToggle={handleToggle}   onDelete={handleDelete}
                 />
@@ -621,6 +637,7 @@ export function RecurringScreen() {
                   key={rule.id}
                   ls={ls}
                   rule={rule}
+                  confirmedId={confirmedId}
                   onConfirm={handleConfirm} onEdit={handleEdit}
                   onToggle={handleToggle}   onDelete={handleDelete}
                 />

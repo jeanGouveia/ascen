@@ -13,6 +13,8 @@ import { scheduleSync } from '../services/sync/syncEngine';
 import { confirmDateForRule, isRuleActiveInCurrentMonth } from '../utils/recurringDates';
 import { buildProjectedTransaction, transactionMatchesRuleMonth } from '../utils/recurringTransactions';
 import { syncRecurringProjectedTransactions } from '../services/recurringProjections';
+import { scheduleRecurringNotifications } from '../services/notificationScheduler';
+import { usePreferences } from './PreferencesContext';
 
 export type RecurringFrequency = 'monthly' | 'weekly' | 'yearly';
 
@@ -88,8 +90,21 @@ export const RecurringProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const { user } = useAuth();
   const { localDataReady, dataRevision } = useUserLocal();
   const { addTransaction, fetchTransactions } = useApp();
+  const { notificationsEnabled, notifyDayOf, notifyOneDayBefore, notifyFiveDaysBefore } = usePreferences();
   const [rules, setRules] = useState<RecurringRule[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const reschedule = useCallback(
+    async (updatedRules: RecurringRule[]) => {
+      await scheduleRecurringNotifications(updatedRules, {
+        notificationsEnabled,
+        notifyDayOf,
+        notifyOneDayBefore,
+        notifyFiveDaysBefore,
+      });
+    },
+    [notificationsEnabled, notifyDayOf, notifyOneDayBefore, notifyFiveDaysBefore]
+  );
 
   const reload = useCallback(async () => {
     if (!user || !localDataReady) {
@@ -132,11 +147,13 @@ export const RecurringProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         scheduleSync(user.id);
         await fetchTransactions();
         await reload();
+        const rows = await localDb.listRecurringRows();
+        await reschedule(rows.map(mapRow));
       } catch (err: unknown) {
         Alert.alert('Erro ao salvar', err instanceof Error ? err.message : 'Erro desconhecido');
       }
     },
-    [user, localDataReady, reload, fetchTransactions]
+    [user, localDataReady, reload, fetchTransactions, reschedule]
   );
 
   const updateRule = useCallback(
@@ -177,27 +194,32 @@ export const RecurringProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (user) scheduleSync(user.id);
         await fetchTransactions();
         await reload();
+        const rows = await localDb.listRecurringRows();
+        await reschedule(rows.map(mapRow));
       } catch (err: unknown) {
         Alert.alert('Erro ao atualizar', err instanceof Error ? err.message : 'Erro desconhecido');
       }
     },
-    [localDataReady, reload, user, rules, fetchTransactions]
+    [localDataReady, reload, user, rules, fetchTransactions, reschedule]
   );
 
   const deleteRule = useCallback(
     async (id: string) => {
       if (!localDataReady) return;
       try {
-        await localDb.deleteUnpaidRecurringTxsForRule(id);
         await localDb.deleteRecurringRow(id);
         if (user) scheduleSync(user.id);
         await fetchTransactions();
-        setRules(prev => prev.filter(r => r.id !== id));
+        setRules(prev => {
+          const next = prev.filter(r => r.id !== id);
+          void reschedule(next);
+          return next;
+        });
       } catch (err: unknown) {
         Alert.alert('Erro ao excluir', err instanceof Error ? err.message : 'Erro desconhecido');
       }
     },
-    [localDataReady, user, fetchTransactions]
+    [localDataReady, user, fetchTransactions, reschedule]
   );
 
   const toggleActive = useCallback(
