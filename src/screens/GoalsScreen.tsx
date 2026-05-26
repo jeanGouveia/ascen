@@ -16,6 +16,7 @@ import { formatBRL, formatDate, todayStr } from '../utils/helpers';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { C_light } from '../styles/theme';
 import { Card, ProgressBar, EmptyState } from '../components/Shared';
+import { DateField } from '../components/DateField';
 import { Goal } from '../types';
 import { useGoals } from '../context/GoalsContext';
 
@@ -281,16 +282,12 @@ export function GoalsScreen() {
                 placeholderTextColor={C.textMuted}
               />
             </View>
-            <View style={s.formGroup}>
-              <Text style={s.formLabel}>PRAZO (opcional, AAAA-MM-DD)</Text>
-              <TextInput
-                style={s.textInput}
-                value={form.deadline}
-                onChangeText={deadline => setForm(f => ({ ...f, deadline }))}
-                placeholder={todayStr()}
-                placeholderTextColor={C.textMuted}
-              />
-            </View>
+            <DateField
+              label="PRAZO (opcional)"
+              value={form.deadline}
+              onChange={deadline => setForm(f => ({ ...f, deadline }))}
+              optional
+            />
             <View style={s.formGroup}>
               <Text style={s.formLabel}>ÍCONE</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>

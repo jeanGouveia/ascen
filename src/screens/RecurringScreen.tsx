@@ -38,6 +38,7 @@ import { useNavigation } from '@react-navigation/native';
 import { createRecurringLocalStyles, RecurringLocalStyles } from '../styles/recurringLocalStyles';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { Card } from '../components/Shared';
+import { DateField } from '../components/DateField';
 import { PAYMENT_METHODS } from '../constants/finance';
 import { TxType } from '../types';
 import { useRecurring, RecurringRule, RecurringInput, RecurringFrequency } from '../context/RecurringContext';
@@ -237,11 +238,6 @@ function RuleForm({ visible, editing, onSave, onClose, ls }: RuleFormProps) {
     if (!desc.trim())                    { Alert.alert('Campo obrigatório', 'Informe uma descrição.'); return; }
     if (!parsed || parsed <= 0)          { Alert.alert('Valor inválido',    'Informe um valor maior que zero.'); return; }
     if (!dayNum || dayNum < 1 || dayNum > 28) { Alert.alert('Dia inválido', 'Informe um dia entre 1 e 28.'); return; }
-
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(startsOn)) {
-      Alert.alert('Data inválida', 'Use o formato AAAA-MM-DD para início da recorrência.');
-      return;
-    }
 
     onSave({
       type, description: desc.trim(), amount: parsed,

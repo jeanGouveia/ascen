@@ -18,6 +18,7 @@ import { formatBRL, todayStr } from '../utils/helpers';
 import { useApp } from '../context/AppContext';
 import { PAYMENT_METHODS } from '../constants/finance';
 import { useCategories } from '../context/CategoryContext';
+import { DateField } from './DateField';
 import {
   buildInstallmentSchedule,
   splitAmountEvenly,
@@ -261,17 +262,11 @@ export function TransactionModal({
               />
             </View>
 
-            <View style={s.formGroup}>
-              <Text style={s.formLabel}>{isInstallment ? 'DATA DA 1ª PARCELA' : 'DATA'}</Text>
-              <TextInput
-                style={s.textInput}
-                value={date}
-                onChangeText={setDate}
-                placeholder="AAAA-MM-DD"
-                placeholderTextColor={C.textMuted}
-                keyboardType="numbers-and-punctuation"
-              />
-            </View>
+            <DateField
+              label={isInstallment ? 'DATA DA 1ª PARCELA' : 'DATA'}
+              value={date}
+              onChange={setDate}
+            />
 
             <View style={s.formGroup}>
               <Text style={s.formLabel}>CATEGORIA</Text>

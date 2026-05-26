@@ -2,6 +2,7 @@ import * as SQLite from 'expo-sqlite';
 import * as Crypto from 'expo-crypto';
 import type { Transaction, TxType, Goal } from '../types';
 import type { Category } from '../types';
+import { ensureUserDatabase as _ensureUserDatabase, getDb, closeUserDatabase } from './dbInstance';
 import { enqueueSync } from '../services/sync/outbox';
 
 const nowIso = () => new Date().toISOString();
@@ -25,39 +26,14 @@ export type LocalRecurringRow = {
   updated_at: string;
 };
 
-let dbInstance: SQLite.SQLiteDatabase | null = null;
-let dbUserId: string | null = null;
-
 export async function ensureUserDatabase(userId: string): Promise<SQLite.SQLiteDatabase> {
-  if (dbUserId === userId && dbInstance) {
-    await migrateSchema(dbInstance);
-    return dbInstance;
-  }
-  await closeUserDatabase();
-  const db = await SQLite.openDatabaseAsync(`ascen_${userId}.db`);
+  const db = await _ensureUserDatabase(userId);
   await initSchema(db);
   await migrateSchema(db);
-  dbInstance = db;
-  dbUserId = userId;
   return db;
 }
 
-export async function closeUserDatabase(): Promise<void> {
-  if (dbInstance) {
-    try {
-      await dbInstance.closeAsync();
-    } catch {
-      /* ignore */
-    }
-  }
-  dbInstance = null;
-  dbUserId = null;
-}
-
-export function getDb(): SQLite.SQLiteDatabase {
-  if (!dbInstance) throw new Error('Banco local não inicializado.');
-  return dbInstance;
-}
+export { getDb, closeUserDatabase };
 
 async function initSchema(db: SQLite.SQLiteDatabase): Promise<void> {
   await db.execAsync(`

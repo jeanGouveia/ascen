@@ -1,4 +1,4 @@
-import { getDb } from '../../db/localDataDb';
+import { getDb } from '../../db/dbInstance';
 import type { SyncEntity, SyncOperation } from '../../types/database';
 
 export type OutboxRow = {

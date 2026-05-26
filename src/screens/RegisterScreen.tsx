@@ -1,8 +1,3 @@
-// ============================================================
-// ARQUIVO 4: screens/RegisterScreen.tsx
-// Cole em: ascen/screens/RegisterScreen.tsx
-// ============================================================
-
 import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
@@ -20,9 +15,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { FormInput } from '../components/FormInput';
 import { LegalFooter } from '../components/LegalFooter';
-import { C_light as C, R } from '../styles/theme';
+import { useAppTheme } from '../hooks/useAppTheme';
+import { R } from '../styles/theme';
 
-// Indicador de força de senha
 function PasswordStrength({ password }: { password: string }) {
   if (!password) return null;
   const checks = [
@@ -56,6 +51,7 @@ interface Props {
 }
 
 export function RegisterScreen({ onNavigateLogin }: Props) {
+  const { C } = useAppTheme();
   const { signUp, signInWithGoogle, loading } = useAuth();
 
   const [name, setName]         = useState('');
