@@ -10,7 +10,7 @@ export function LegalFooter({ prefix }: { prefix: string }) {
       {'\n'}
       <Text
         style={styles.link}
-        onPress={() => void Linking.openURL(PRIVACY_URL)}
+        onPress={() => { if (PRIVACY_URL) void Linking.openURL(PRIVACY_URL); }}
         accessibilityRole="link"
         accessibilityLabel="Termos de Uso e Política de Privacidade"
       >

@@ -38,8 +38,8 @@ export function assertGoogleAndroidClientIdConfigured(): string {
         '• Pacote: com.valtun.ascen\n' +
         '// SHA-1 para OAuth Android:\n' +
         '// - Debug:   5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25\n' +
-        '// - Release: TODO — gerar keystore de release e registrar no Google Cloud Console\n' +
-        '//            (Credenciais → OAuth → Android → pacote: com.valtun.ascen)\n\n' +
+        '// - Release: obter SHA-1 com: keytool -list -v -keystore ../keystores/ascen-release.jks -alias ascen-key\n' +
+        '//            Registrar em: Google Cloud Console → Credenciais → OAuth → Android → pacote: com.valtun.ascen\n\n' +
         'Salve o .env e rode: npm run android'
     );
   }

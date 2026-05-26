@@ -41,11 +41,10 @@ export async function scheduleRecurringNotifications(
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
 
-  const months: Array<{ year: number; month: number }> = [{ year: currentYear, month: currentMonth }];
-  if (currentMonth === 12) {
-    months.push({ year: currentYear + 1, month: 1 });
-  } else {
-    months.push({ year: currentYear, month: currentMonth + 1 });
+  const months: Array<{ year: number; month: number }> = [];
+  for (let i = 0; i < 3; i++) {
+    const d = new Date(currentYear, currentMonth - 1 + i, 1);
+    months.push({ year: d.getFullYear(), month: d.getMonth() + 1 });
   }
 
   const activeRules = rules.filter(r => r.active);

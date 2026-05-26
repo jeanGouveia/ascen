@@ -230,7 +230,6 @@ export async function insertTransaction(data: Omit<Transaction, 'id'>): Promise<
   const id = Crypto.randomUUID();
   const updated = nowIso();
   const db = getDb();
-  await migrateSchema(db);
   await db.runAsync(
     `INSERT INTO transactions (
       id, type, amount, description, category, category_icon, category_color, category_id,
@@ -602,12 +601,14 @@ export async function exportTablesForSnapshot(): Promise<{
   transactions: Record<string, unknown>[];
   categories: Record<string, unknown>[];
   recurring: Record<string, unknown>[];
+  goals: Record<string, unknown>[];
 }> {
   const db = getDb();
   const transactions = await db.getAllAsync<Record<string, unknown>>('SELECT * FROM transactions');
   const categories = await db.getAllAsync<Record<string, unknown>>('SELECT * FROM categories');
   const recurring = await db.getAllAsync<Record<string, unknown>>('SELECT * FROM recurring_rules');
-  return { transactions, categories, recurring };
+  const goals = await db.getAllAsync<Record<string, unknown>>('SELECT * FROM goals');
+  return { transactions, categories, recurring, goals };
 }
 
 export type SnapshotTablesV1 = {
@@ -616,6 +617,7 @@ export type SnapshotTablesV1 = {
   transactions: Record<string, unknown>[];
   categories: Record<string, unknown>[];
   recurring: Record<string, unknown>[];
+  goals?: Record<string, unknown>[];
   avatarBase64?: string | null;
 };
 
@@ -706,6 +708,28 @@ export async function replaceAllDataFromSnapshot(payload: SnapshotTablesV1): Pro
           bindStrNull(row.updated_at),
         ]
       );
+    }
+    // Restaurar metas (campo opcional para compatibilidade com backups antigos)
+    if (payload.goals && payload.goals.length > 0) {
+      await db.execAsync('DELETE FROM goals');
+      for (const row of payload.goals) {
+        await db.runAsync(
+          `INSERT INTO goals (id, name, icon, color, target, current, deadline, completed, updated_at, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))`,
+          [
+            bindStr(row.id),
+            bindStr(row.name),
+            bindStr(row.icon),
+            bindStr(row.color),
+            bindNum(row.target),
+            bindNum(row.current, 0),
+            bindStrNull(row.deadline),
+            bindNum(row.completed, 0),
+            bindStrNull(row.updated_at) ?? nowIso(),
+            bindStrNull(row.created_at),
+          ]
+        );
+      }
     }
   });
 }
