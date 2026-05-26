@@ -26,11 +26,6 @@ const FAQ_SECTIONS = [
       'Na aba Metas você define um objetivo com nome, valor alvo e prazo. O app acompanha seu progresso conforme você registra aportes.',
   },
   {
-    title: 'O que é o backup em nuvem?',
-    body:
-      'O Ascen pode salvar um snapshot criptografado dos seus dados no Google Drive. Vá em Configurações → seu perfil para configurar. Seus dados ficam protegidos por uma senha que só você conhece.',
-  },
-  {
     title: 'Como funciona a família?',
     body:
       'O dono da conta gera um código de 8 letras e compartilha com outro dispositivo. Os lançamentos marcados como compartilhados são sincronizados entre os dois.',
@@ -38,7 +33,7 @@ const FAQ_SECTIONS = [
   {
     title: 'Minhas informações ficam seguras?',
     body:
-      'Sim. Os dados ficam salvos localmente no seu aparelho. O sync com a nuvem é opcional e usa criptografia de ponta a ponta.',
+      'Sim. Os dados ficam salvos localmente no seu aparelho. E qualquer transferência de dados no caso de família o sistema usa criptografia de ponta a ponta.',
   },
 ] as const;
 
