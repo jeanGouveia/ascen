@@ -1,8 +1,3 @@
-// ============================================================
-// ARQUIVO 3: screens/LoginScreen.tsx
-// Cole em: ascen/screens/LoginScreen.tsx
-// ============================================================
-
 import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
@@ -21,15 +16,15 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/supabase';
 import { FormInput } from '../components/FormInput';
 import { LegalFooter } from '../components/LegalFooter';
-import { C_light as C, R } from '../styles/theme';
-
-// ─── Tela Principal ───────────────────────────────────────────
+import { useAppTheme } from '../hooks/useAppTheme';
+import { R } from '../styles/theme';
 
 interface Props {
   onNavigateRegister: () => void;
 }
 
 export function LoginScreen({ onNavigateRegister }: Props) {
+  const { C } = useAppTheme();
   const { signIn, signInWithGoogle, loading } = useAuth();
 
   const [email, setEmail]       = useState('');

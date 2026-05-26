@@ -188,11 +188,11 @@ export function ProfileScreen() {
           </View>
         </View>
 
-        {role === 'owner' && (
+        {!role && (
           <Card style={{ marginBottom: 14 }}>
-            <Text style={[s.formLabel, { marginBottom: 8 }]}>ENTRAR EM OUTRA FAMÍLIA</Text>
+            <Text style={[s.formLabel, { marginBottom: 8 }]}>ENTRAR EM UMA FAMÍLIA</Text>
             <Text style={[s.txMeta, { marginBottom: 10 }]}>
-              Use só se você for o segundo aparelho e tiver o código de quem criou a conta.
+              Se outra pessoa já criou uma conta e quer compartilhar os lançamentos com você, peça o código de 8 letras dela e cole aqui.
             </Text>
             <TextInput
               value={joinCodeInput}

@@ -4,7 +4,7 @@ App financeiro pessoal (React Native + Expo) com arquitetura **offline-first**: 
 
 ## Stack
 
-- Expo 54 · React Native · TypeScript
+- Expo 56 · React Native · TypeScript
 - SQLite (`expo-sqlite`) — cache local
 - Supabase — auth, Postgres, storage
 - Zustand — status de sincronização
@@ -13,9 +13,10 @@ App financeiro pessoal (React Native + Expo) com arquitetura **offline-first**: 
 ## Configuração
 
 1. Copie `.env.example` para `.env` e preencha variáveis do Supabase/Google se usar Drive.
-2. No [Supabase SQL Editor](https://supabase.com/dashboard), execute **`supabase/schema.sql`** (apaga `household*` legado e cria `families`, `transactions`, etc.).
-3. Crie o bucket Storage **`ascen-snapshots`** (privado).
-4. Instale dependências e rode:
+2. Copie `credentials.json.example` para `credentials.json` e preencha com as senhas do keystore (não commitar `credentials.json`).
+3. No [Supabase SQL Editor](https://supabase.com/dashboard), execute **`supabase/schema.sql`** (apaga `household*` legado e cria `families`, `transactions`, etc.).
+4. Crie o bucket Storage **`ascen-snapshots`** (privado).
+5. Instale dependências e rode:
 
 ```bash
 npm install
