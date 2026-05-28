@@ -1,5 +1,3 @@
-import { __DEV__ } from 'expo-constants';
-
 const PRIVACY_URL_DEFAULT = 'https://valtun.com.br/privacidade.html';
 
 /** URL pública dos Termos de Uso e Política de Privacidade (obrigatória na Play Store). */
