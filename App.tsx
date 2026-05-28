@@ -1,10 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer, DefaultTheme, DarkTheme, Theme } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
-
 import { PreferencesProvider, usePreferences } from './src/context/PreferencesContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { UserLocalDataProvider } from './src/context/UserLocalDataContext';
@@ -18,6 +17,7 @@ import { LoginScreen } from './src/screens/LoginScreen';
 import { RegisterScreen } from './src/screens/RegisterScreen';
 import { TransactionModal } from './src/components/TransactionModal';
 import { getColors, C_light } from './src/styles/theme';
+import * as SplashScreen from 'expo-splash-screen';
 
 function ThemedNavigation({ children }: { children: React.ReactNode }) {
   const { darkMode, loaded } = usePreferences();
@@ -45,6 +45,13 @@ function ThemedNavigation({ children }: { children: React.ReactNode }) {
         <ActivityIndicator size="large" color={C_light.primary} />
       </View>
     );
+  } else if (loaded === true) {
+    useEffect(() => {
+      if (loaded) {
+        SplashScreen.hideAsync();
+      }
+    }, [loaded]);
+
   }
 
   return <NavigationContainer theme={navTheme}>{children}</NavigationContainer>;
