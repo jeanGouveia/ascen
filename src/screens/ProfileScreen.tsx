@@ -79,6 +79,7 @@ export function ProfileScreen() {
       items: [
         { icon: '👤', label: 'Meu perfil', sub: 'Nome e foto de exibição', route: 'EditProfile' },
         { icon: '🔒', label: 'Alterar senha', sub: 'Contas com login por e-mail', route: 'ChangePassword' },
+        { icon: '🗑️', label: 'Excluir conta', sub: 'Solicitar remoção dos seus dados', route: 'DeleteAccount' },
       ],
     },
     {

@@ -14,6 +14,7 @@ import { EditProfileScreen } from './EditProfileScreen';
 import { ChangePasswordScreen } from './ChangePasswordScreen';
 import { NotificationSettingsScreen } from './NotificationSettingsScreen';
 import { HelpScreen } from './HelpScreen';
+import { DeleteAccountScreen } from './DeleteAccountScreen';
 import { useRecurring } from '../context/RecurringContext';
 import { usePreferences } from '../context/PreferencesContext';
 import { scheduleRecurringNotifications } from '../services/notificationScheduler';
@@ -124,6 +125,11 @@ export function AppNavigator() {
         name="Ajuda"
         component={HelpScreen}
         options={{ headerShown: true, title: 'Ajuda', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="DeleteAccount"
+        component={DeleteAccountScreen}
+        options={{ headerShown: true, title: 'Excluir conta', animation: 'slide_from_right' }}
       />
     </Stack.Navigator>
   );
