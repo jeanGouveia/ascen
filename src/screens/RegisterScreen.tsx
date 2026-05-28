@@ -16,7 +16,7 @@ import { useAuth } from '../context/AuthContext';
 import { FormInput } from '../components/FormInput';
 import { LegalFooter } from '../components/LegalFooter';
 import { useAppTheme } from '../hooks/useAppTheme';
-import { R } from '../styles/theme';
+import { C_light as C, R } from '../styles/theme';
 
 function PasswordStrength({ password }: { password: string }) {
   if (!password) return null;

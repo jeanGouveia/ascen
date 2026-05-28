@@ -17,7 +17,7 @@ import { supabase } from '../services/supabase';
 import { FormInput } from '../components/FormInput';
 import { LegalFooter } from '../components/LegalFooter';
 import { useAppTheme } from '../hooks/useAppTheme';
-import { R } from '../styles/theme';
+import { C_light as C, R } from '../styles/theme';
 
 interface Props {
   onNavigateRegister: () => void;
