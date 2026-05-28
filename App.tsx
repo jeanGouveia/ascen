@@ -22,6 +22,13 @@ import * as SplashScreen from 'expo-splash-screen';
 function ThemedNavigation({ children }: { children: React.ReactNode }) {
   const { darkMode, loaded } = usePreferences();
   const C = useMemo(() => getColors(darkMode), [darkMode]);
+
+  useEffect(() => {
+    if (loaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [loaded]);
+
   const navTheme = useMemo((): Theme => {
     const base = darkMode ? DarkTheme : DefaultTheme;
     return {
@@ -45,13 +52,6 @@ function ThemedNavigation({ children }: { children: React.ReactNode }) {
         <ActivityIndicator size="large" color={C_light.primary} />
       </View>
     );
-  } else if (loaded === true) {
-    useEffect(() => {
-      if (loaded) {
-        SplashScreen.hideAsync();
-      }
-    }, [loaded]);
-
   }
 
   return <NavigationContainer theme={navTheme}>{children}</NavigationContainer>;
