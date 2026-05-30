@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, Text } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -45,6 +46,7 @@ function TabIcon({
 
 function TabNavigator() {
   const { C, s } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const { rules } = useRecurring();
   const { notificationsEnabled, notifyDayOf, notifyOneDayBefore, notifyFiveDaysBefore } = usePreferences();
 
@@ -57,11 +59,13 @@ function TabNavigator() {
     });
   }, [rules, notificationsEnabled, notifyDayOf, notifyOneDayBefore, notifyFiveDaysBefore]);
 
+  const tabBarHeight = 64 + insets.bottom;
+
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarStyle: s.tabBar,
+        tabBarStyle: [s.tabBar, { height: tabBarHeight, paddingBottom: insets.bottom + 4 }],
         tabBarActiveTintColor: C.primary,
         tabBarInactiveTintColor: C.textMuted,
         tabBarLabelStyle: s.tabLabel,

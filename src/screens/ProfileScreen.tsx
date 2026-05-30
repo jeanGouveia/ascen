@@ -189,9 +189,8 @@ export function ProfileScreen() {
           </View>
         </View>
 
-        {!role && (
-          <Card style={{ marginBottom: 14 }}>
-            <Text style={[s.formLabel, { marginBottom: 8 }]}>ENTRAR EM UMA FAMÍLIA</Text>
+        {role !== 'member' && (
+          <Card style={{ marginBottom: 14 }}>\n            <Text style={[s.formLabel, { marginBottom: 8 }]}>ENTRAR EM UMA FAMÍLIA</Text>
             <Text style={[s.txMeta, { marginBottom: 10 }]}>
               Se outra pessoa já criou uma conta e quer compartilhar os lançamentos com você, peça o código de 8 letras dela e cole aqui.
             </Text>
@@ -199,6 +198,7 @@ export function ProfileScreen() {
               value={joinCodeInput}
               onChangeText={t => setJoinCodeInput(t.toUpperCase())}
               placeholder="Código de 8 letras"
+              placeholderTextColor={C.textMuted}
               autoCapitalize="characters"
               maxLength={8}
               style={{

@@ -12,10 +12,12 @@ import { AppProvider, useApp } from './src/context/AppContext';
 import { CategoryProvider } from './src/context/CategoryContext';
 import { RecurringProvider } from './src/context/RecurringContext';
 import { GoalsProvider } from './src/context/GoalsContext';
+import { OnboardingProvider, useOnboarding } from './src/context/OnboardingContext';
 import { AppNavigator } from './src/screens/AppNavigator';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { RegisterScreen } from './src/screens/RegisterScreen';
 import { TransactionModal } from './src/components/TransactionModal';
+import { CoachMarksOverlay } from './src/components/CoachMarksOverlay';
 import { getColors, C_light } from './src/styles/theme';
 import * as SplashScreen from 'expo-splash-screen';
 
@@ -82,12 +84,23 @@ function AuthGate() {
 function AppContent() {
   const { modalState, closeTxModal } = useApp();
   const { darkMode } = usePreferences();
+  const { shouldShow, isReady, startOnboarding } = useOnboarding();
+
+  // Dispara onboarding na primeira vez que o usuário entra no app
+  React.useEffect(() => {
+    if (isReady && shouldShow) {
+      // Pequeno delay para o app carregar visualmente antes dos coach marks
+      const t = setTimeout(() => startOnboarding(), 800);
+      return () => clearTimeout(t);
+    }
+  }, [isReady]);
 
   return (
     <>
       <StatusBar style={darkMode ? 'light' : 'dark'} />
       <AppNavigator />
       <TransactionModal state={modalState} onClose={closeTxModal} />
+      <CoachMarksOverlay />
     </>
   );
 }
@@ -105,7 +118,9 @@ export default function App() {
                     <CategoryProvider>
                       <RecurringProvider>
                         <GoalsProvider>
-                          <AuthGate />
+                          <OnboardingProvider>
+                            <AuthGate />
+                          </OnboardingProvider>
                         </GoalsProvider>
                       </RecurringProvider>
                     </CategoryProvider>

@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { FormInput } from '../components/FormInput';
 import { LegalFooter } from '../components/LegalFooter';
+import { GoogleLogo } from '../components/GoogleLogo';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { C_light as C, R } from '../styles/theme';
 
@@ -284,7 +285,7 @@ export function RegisterScreen({ onNavigateLogin }: Props) {
                 ? <ActivityIndicator color={C.textMid} />
                 : (
                   <>
-                    <Text style={{ fontSize: 22 }}>🔵</Text>
+                    <GoogleLogo size={22} />
                     <Text style={s.googleBtnText}>Continuar com Google</Text>
                   </>
                 )

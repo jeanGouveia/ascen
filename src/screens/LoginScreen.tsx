@@ -16,6 +16,7 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/supabase';
 import { FormInput } from '../components/FormInput';
 import { LegalFooter } from '../components/LegalFooter';
+import { GoogleLogo } from '../components/GoogleLogo';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { C_light as C, R } from '../styles/theme';
 
@@ -192,7 +193,7 @@ export function LoginScreen({ onNavigateRegister }: Props) {
                 ? <ActivityIndicator color={C.textMid} />
                 : (
                   <>
-                    <Text style={{ fontSize: 22 }}>🔵</Text>
+                    <GoogleLogo size={22} />
                     <Text style={s.googleBtnText}>Entrar com Google</Text>
                   </>
                 )

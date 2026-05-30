@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { Card } from '../components/Shared';
+import { useOnboarding } from '../context/OnboardingContext';
 
 const FAQ_SECTIONS = [
   {
@@ -39,12 +40,36 @@ const FAQ_SECTIONS = [
 
 export function HelpScreen() {
   const { C, s } = useAppTheme();
+  const { startOnboarding } = useOnboarding();
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['bottom']}>
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
         <Text style={[s.pageTitle, { marginBottom: 4 }]}>Ajuda</Text>
         <Text style={[s.pageSubtitle, { marginBottom: 20 }]}>Como usar o Ascen</Text>
+
+        <TouchableOpacity
+          onPress={startOnboarding}
+          activeOpacity={0.85}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+            backgroundColor: C.primaryLight,
+            borderRadius: 16,
+            padding: 16,
+            marginBottom: 20,
+            borderWidth: 1,
+            borderColor: C.primary,
+          }}
+        >
+          <Text style={{ fontSize: 26 }}>🎓</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: C.primary, fontWeight: '800', fontSize: 15 }}>Rever tutorial</Text>
+            <Text style={{ color: C.textMuted, fontSize: 13, marginTop: 2 }}>Ver o guia de boas-vindas novamente</Text>
+          </View>
+          <Text style={{ color: C.primary, fontSize: 18 }}>›</Text>
+        </TouchableOpacity>
 
         {FAQ_SECTIONS.map((section, i) => (
           <Card key={section.title} style={{ marginBottom: i < FAQ_SECTIONS.length - 1 ? 14 : 0 }}>
