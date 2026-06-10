@@ -15,6 +15,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   canChangePassword: boolean;
+  awaitingPasswordReset: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
@@ -94,6 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [awaitingPasswordReset, setAwaitingPasswordReset] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -107,6 +109,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_OUT') {
         await clearStoredGoogleTokens();
+        setAwaitingPasswordReset(false);
+      }
+      // Quando o usuário clica no link de reset de senha, o Supabase
+      // emite PASSWORD_RECOVERY. Guardamos esse estado para a UI exibir
+      // a tela de redefinição de senha em vez de entrar no app direto.
+      if (event === 'PASSWORD_RECOVERY') {
+        setAwaitingPasswordReset(true);
+      } else {
+        setAwaitingPasswordReset(false);
       }
       setSession(session);
       setUser(session?.user ?? null);
@@ -176,31 +187,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signIn(email: string, password: string) {
-    setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
     });
-    setLoading(false);
     if (error) throw new Error(mapAuthError(error.message));
+    // Não mexemos em setLoading aqui — o onAuthStateChange já faz isso.
   }
 
   async function signUp(email: string, password: string, name: string) {
-    setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
-      options: { data: { full_name: name.trim() } },
+      options: { 
+        emailRedirectTo: Linking.createURL('auth-confirmed'),
+        data: { 
+          full_name: name.trim() 
+        } 
+      },
     });
-    setLoading(false);
     if (error) throw new Error(mapAuthError(error.message));
+    // Se o Supabase retornar session nula (confirmação de e-mail obrigatória),
+    // não tentamos autenticar — o RegisterScreen exibirá a tela de confirmação.
+    if (!data.session) return; // aguarda confirmação por e-mail
   }
 
   async function signOut() {
-    setLoading(true);
     await clearStoredGoogleTokens();
     await supabase.auth.signOut();
-    setLoading(false);
   }
 
   const canChangePassword = useMemo(
@@ -229,6 +243,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         session,
         loading,
         canChangePassword,
+        awaitingPasswordReset,
         signIn,
         signUp,
         signInWithGoogle,

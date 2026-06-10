@@ -12,6 +12,7 @@ import {
   Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Linking from 'expo-linking';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/supabase';
 import { FormInput } from '../components/FormInput';
@@ -148,7 +149,12 @@ export function LoginScreen({ onNavigateRegister }: Props) {
                   return;
                 }
                 try {
-                  const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+                  // redirectTo garante que o link do e-mail abra o app (deep link)
+                  // em vez de redirecionar para localhost:3000
+                  const redirectTo = Linking.createURL('reset-password');
+                  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+                    redirectTo,
+                  });
                   if (error) throw error;
                   Alert.alert(
                     'E-mail enviado',
