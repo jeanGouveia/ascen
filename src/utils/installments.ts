@@ -31,6 +31,8 @@ export type InstallmentScheduleItem = {
   date: string;
   amount: number;
   installmentInfo: string;
+  /** true se a data da parcela já passou (parcela considerada paga ao lançar retroativamente) */
+  isPaid?: boolean;
 };
 
 export function buildInstallmentSchedule(params: {
@@ -40,14 +42,20 @@ export function buildInstallmentSchedule(params: {
   inputAmount: number;
 }): InstallmentScheduleItem[] {
   const count = Math.max(1, Math.min(120, Math.floor(params.count)));
+  const today = new Date().toISOString().slice(0, 10); // AAAA-MM-DD
   const amounts =
     params.amountMode === 'per_installment'
       ? Array(count).fill(params.inputAmount)
       : splitAmountEvenly(params.inputAmount, count);
 
-  return amounts.map((amount, i) => ({
-    date: addMonthsToDate(params.firstDate, i),
-    amount,
-    installmentInfo: `${i + 1}/${count}`,
-  }));
+  return amounts.map((amount, i) => {
+    const date = addMonthsToDate(params.firstDate, i);
+    return {
+      date,
+      amount,
+      installmentInfo: `${i + 1}/${count}`,
+      // Parcelas com data anterior a hoje são marcadas como já pagas (lançamento retroativo)
+      isPaid: date < today,
+    };
+  });
 }

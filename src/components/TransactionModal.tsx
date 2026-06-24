@@ -153,6 +153,7 @@ export function TransactionModal({
             date: item.date,
             isInstallment: true,
             installmentInfo: item.installmentInfo,
+            isPaid: item.isPaid ?? false, // parcelas passadas marcadas como pagas automaticamente
           }))
         );
       } else {

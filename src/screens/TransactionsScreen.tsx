@@ -27,12 +27,20 @@ export function TransactionsScreen() {
     { key: 'expense' as const, label: '⬇ Saídas',   color: C.danger  },
   ];
 
+  const today = new Date().toISOString().slice(0, 10);
   const filtered = transactions
     .filter(t => {
       if (t.isFixed && !t.isPaid && t.notes?.startsWith('recurring_rule:')) return false;
       return filter === 'all' || t.type === filter;
     })
-    .sort((a, b) => b.date.localeCompare(a.date));
+    .sort((a, b) => {
+      // Futuro/hoje no topo (mais próximo primeiro), depois passado (mais recente primeiro)
+      const aFuture = a.date >= today;
+      const bFuture = b.date >= today;
+      if (aFuture && bFuture) return a.date.localeCompare(b.date);   // futuros: ascendente (amanhã antes de 2027)
+      if (!aFuture && !bFuture) return b.date.localeCompare(a.date); // passados: descendente (ontem antes de 2023)
+      return aFuture ? -1 : 1; // futuro/hoje sempre antes do passado
+    });
   const grouped: Record<string, Transaction[]> = {};
   filtered.forEach(tx => { const k = formatDate(tx.date); if (!grouped[k]) grouped[k] = []; grouped[k].push(tx); });
 

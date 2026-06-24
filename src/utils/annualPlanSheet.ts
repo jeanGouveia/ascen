@@ -253,7 +253,8 @@ export function buildAnnualPlanSheet(input: BuildAnnualPlanInput): AnnualPlanRow
       kind: 'recurring',
       label: `↻ ${rule.description}`,
       months: [...months],
-      indent: true,
+      // Recorrências são uma seção independente; sem indent para não parecer
+      // sub-item do bloco "Cartão de crédito"
     });
   }
 
