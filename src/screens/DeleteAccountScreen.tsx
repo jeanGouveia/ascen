@@ -14,6 +14,7 @@ import { useAuth } from '../context/AuthContext';
 import { useFamily } from '../context/FamilyContext';
 import { supabase } from '../services/supabase';
 import { Card } from '../components/Shared';
+import { SUPPORT_EMAIL } from '../constants/legal';
 
 export function DeleteAccountScreen() {
   const navigation = useNavigation<any>();
@@ -79,7 +80,7 @@ export function DeleteAccountScreen() {
       setBusy(false);
       Alert.alert(
         'Erro',
-        'Não foi possível processar a exclusão. Tente novamente ou entre em contato com suporte@valtun.com.br.'
+        `Não foi possível processar a exclusão. Tente novamente ou entre em contato com ${SUPPORT_EMAIL}.`
       );
     }
   }
@@ -187,7 +188,7 @@ export function DeleteAccountScreen() {
           <Text style={[s.formLabel, { marginBottom: 8 }]}>ANTES DE EXCLUIR</Text>
           <Text style={s.txMeta}>
             Se o problema for técnico ou tiver dúvidas, entre em contato:{' '}
-            <Text style={{ color: C.primary, fontWeight: '600' }}>suporte@valtun.com.br</Text>
+            <Text style={{ color: C.primary, fontWeight: '600' }}>{SUPPORT_EMAIL}</Text>
           </Text>
         </Card>
 
