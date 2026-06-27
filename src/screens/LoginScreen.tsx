@@ -20,6 +20,7 @@ import { LegalFooter } from '../components/LegalFooter';
 import { GoogleLogo } from '../components/GoogleLogo';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { C_light as C, R } from '../styles/theme';
+import { validatePassword, PASSWORD_MIN_LENGTH } from '../utils/passwordPolicy';
 
 interface Props {
   onNavigateRegister: () => void;
@@ -63,7 +64,10 @@ export function LoginScreen({ onNavigateRegister }: Props) {
     if (!email.trim())            errs.email    = 'Informe seu e-mail.';
     else if (!email.includes('@')) errs.email   = 'E-mail inválido.';
     if (!password)                errs.password = 'Informe sua senha.';
-    else if (password.length < 6) errs.password = 'Mínimo de 6 caracteres.';
+    else {
+      const pwdCheck = validatePassword(password);
+      if (!pwdCheck.valid) errs.password = pwdCheck.reason ?? 'Senha inválida.';
+    }
     setErrors(errs);
     if (Object.keys(errs).length > 0) { shake(); return false; }
     return true;
@@ -133,7 +137,7 @@ export function LoginScreen({ onNavigateRegister }: Props) {
                 label="Senha"
                 value={password}
                 onChange={handlePasswordChange}
-                placeholder="Mínimo 6 caracteres"
+                placeholder={`Mínimo ${PASSWORD_MIN_LENGTH} caracteres`}
                 secure
                 error={errors.password}
               />

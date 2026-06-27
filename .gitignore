@@ -43,3 +43,5 @@ yarn-error.*
 
 # Credentials (sensitive)
 credentials.json
+
+supabase/.temp/

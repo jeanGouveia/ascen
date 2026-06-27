@@ -262,7 +262,7 @@ function mapAuthError(msg: string): string {
   if (msg.includes('Invalid login credentials')) return 'E-mail ou senha incorretos.';
   if (msg.includes('Email not confirmed')) return 'Confirme seu e-mail antes de entrar.';
   if (msg.includes('User already registered')) return 'Este e-mail já está cadastrado.';
-  if (msg.includes('Password should be at least')) return 'A senha deve ter ao menos 6 caracteres.';
+  if (msg.includes('Password should be at least')) return 'A senha deve ter ao menos 8 caracteres.';
   if (msg.includes('Unable to validate email')) return 'E-mail inválido.';
   if (msg.includes('rate limit')) return 'Muitas tentativas. Aguarde alguns minutos.';
   return 'Ocorreu um erro. Tente novamente.';

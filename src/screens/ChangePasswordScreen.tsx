@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator,
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../hooks/useAppTheme';
+import { validatePassword, PASSWORD_MIN_LENGTH } from '../utils/passwordPolicy';
 
 export function ChangePasswordScreen() {
   const { canChangePassword, updatePassword } = useAuth();
@@ -23,8 +24,9 @@ export function ChangePasswordScreen() {
   }
 
   const submit = async () => {
-    if (password.length < 6) {
-      Alert.alert('Senha', 'Use pelo menos 6 caracteres.');
+    const pwdCheck = validatePassword(password);
+    if (!pwdCheck.valid) {
+      Alert.alert('Senha', pwdCheck.reason ?? 'Senha inválida.');
       return;
     }
     if (password !== confirm) {
@@ -57,7 +59,7 @@ export function ChangePasswordScreen() {
             style={s.textInput}
             value={password}
             onChangeText={setPassword}
-            placeholder="Mínimo 6 caracteres"
+            placeholder={`Mínimo ${PASSWORD_MIN_LENGTH} caracteres`}
             placeholderTextColor={C.textMuted}
             secureTextEntry
             autoCapitalize="none"

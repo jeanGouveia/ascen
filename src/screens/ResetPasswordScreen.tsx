@@ -15,6 +15,7 @@ import { useAuth } from '../context/AuthContext';
 import { FormInput } from '../components/FormInput';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { R } from '../styles/theme';
+import { validatePassword, PASSWORD_MIN_LENGTH } from '../utils/passwordPolicy';
 
 interface Props {
   onSuccess: () => void; // callback para voltar ao Login após redefinir
@@ -32,7 +33,10 @@ export function ResetPasswordScreen({ onSuccess }: Props) {
   function validate(): boolean {
     const errs: typeof errors = {};
     if (!password)                errs.password = 'Informe a nova senha.';
-    else if (password.length < 6) errs.password = 'Mínimo de 6 caracteres.';
+    else {
+      const pwdCheck = validatePassword(password);
+      if (!pwdCheck.valid) errs.password = pwdCheck.reason ?? 'Senha inválida.';
+    }
     if (!confirm)                 errs.confirm  = 'Confirme a nova senha.';
     else if (confirm !== password) errs.confirm  = 'As senhas não coincidem.';
     setErrors(errs);
@@ -82,7 +86,7 @@ export function ResetPasswordScreen({ onSuccess }: Props) {
                 setPassword(v);
                 setErrors(prev => ({ ...prev, password: undefined }));
               }}
-              placeholder="Mínimo 6 caracteres"
+              placeholder={`Mínimo ${PASSWORD_MIN_LENGTH} caracteres`}
               secure
               error={errors.password}
             />
