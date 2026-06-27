@@ -16,6 +16,7 @@ import { useUserLocal } from '../context/UserLocalDataContext';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { Card } from '../components/Shared';
 import { saveAvatarFromPickerUri, removeLocalAvatar } from '../services/localAvatar';
+import { sanitizeName } from '../utils/inputSanitizer';
 
 function isLegacyRemoteAvatar(url?: string): boolean {
   return Boolean(url && (url.startsWith('http://') || url.startsWith('https://')));
@@ -53,8 +54,8 @@ export function EditProfileScreen() {
   };
 
   const handleSave = async () => {
-    const trimmed = name.trim();
-    if (!trimmed) {
+    const sanitized = sanitizeName(name);
+    if (!sanitized) {
       Alert.alert('Nome', 'Informe um nome para exibição.');
       return;
     }
@@ -63,11 +64,11 @@ export function EditProfileScreen() {
     try {
       if (localPhotoUri) {
         await saveAvatarFromPickerUri(user.id, localPhotoUri);
-        await updateProfile({ fullName: trimmed, avatarUrl: '' });
+        await updateProfile({ fullName: sanitized, avatarUrl: '' });
         await refreshLocalAvatar();
         setLocalPhotoUri(null);
       } else {
-        await updateProfile({ fullName: trimmed });
+        await updateProfile({ fullName: sanitized });
       }
       Alert.alert('Perfil atualizado', 'Suas alterações foram salvas no aparelho.');
     } catch (e) {
@@ -87,7 +88,7 @@ export function EditProfileScreen() {
         onPress: async () => {
           try {
             await removeLocalAvatar(user.id);
-            await updateProfile({ fullName: name.trim(), avatarUrl: '' });
+            await updateProfile({ fullName: sanitizeName(name), avatarUrl: '' });
             await refreshLocalAvatar();
             setLocalPhotoUri(null);
           } catch (e) {

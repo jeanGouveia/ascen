@@ -19,6 +19,7 @@ import { GoogleLogo } from '../components/GoogleLogo';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { C_light as C, R } from '../styles/theme';
 import { validatePassword, PASSWORD_MIN_LENGTH } from '../utils/passwordPolicy';
+import { sanitizeEmail, sanitizeName } from '../utils/inputSanitizer';
 
 function PasswordStrength({ password }: { password: string }) {
   if (!password) return null;
@@ -120,9 +121,11 @@ export function RegisterScreen({ onNavigateLogin }: Props) {
 
   function validate(): boolean {
     const errs: Record<string, string> = {};
-    if (!name.trim())                    errs.name     = 'Informe seu nome.';
-    if (!email.trim())                   errs.email    = 'Informe seu e-mail.';
-    else if (!email.includes('@'))       errs.email    = 'E-mail inválido.';
+    const sanitizedName = sanitizeName(name);
+    const sanitizedEmail = sanitizeEmail(email);
+    if (!sanitizedName)                 errs.name     = 'Informe seu nome.';
+    if (!sanitizedEmail)                errs.email    = 'Informe seu e-mail.';
+    else if (!sanitizedEmail.includes('@')) errs.email    = 'E-mail inválido.';
     if (!password)                       errs.password = 'Informe uma senha.';
     else {
       const pwdCheck = validatePassword(password);
@@ -138,7 +141,7 @@ export function RegisterScreen({ onNavigateLogin }: Props) {
     if (!validate()) return;
     setSubmitting(true);
     try {
-      await signUp(email, password, name);
+      await signUp(sanitizeEmail(email), password, sanitizeName(name));
       setDone(true); // Mostra tela de confirmação de e-mail
     } catch (err: any) {
       Alert.alert('Erro no cadastro', err.message);

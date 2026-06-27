@@ -7,6 +7,7 @@ import { supabase } from '../services/supabase';
 import { clearStoredGoogleTokens } from '../services/googleAccessToken';
 import { authorizeGoogleDriveDirect } from '../services/googleDriveAuthDirect';
 import { isGoogleDriveConfigured, getGoogleDriveSetupHint } from '../config/googleOAuth';
+import { sanitizeEmail, sanitizeName } from '../utils/inputSanitizer';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -188,7 +189,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signIn(email: string, password: string) {
     const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
+      email: sanitizeEmail(email),
       password,
     });
     if (error) throw new Error(mapAuthError(error.message));
@@ -197,12 +198,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signUp(email: string, password: string, name: string) {
     const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
+      email: sanitizeEmail(email),
       password,
       options: { 
         emailRedirectTo: Linking.createURL('auth-confirmed'),
         data: { 
-          full_name: name.trim() 
+          full_name: sanitizeName(name) 
         } 
       },
     });
@@ -223,7 +224,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   async function updateProfile(params: { fullName: string; avatarUrl?: string | null }) {
-    const data: Record<string, string> = { full_name: params.fullName.trim() };
+    const data: Record<string, string> = { full_name: sanitizeName(params.fullName) };
     if (params.avatarUrl !== undefined) {
       data.avatar_url = params.avatarUrl ?? '';
     }

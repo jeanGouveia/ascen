@@ -22,6 +22,7 @@ import { useAuth } from '../context/AuthContext';
 import { useUserLocal } from '../context/UserLocalDataContext';
 import { useFamily } from '../context/FamilyContext';
 import { initialSync } from '../services/sync/syncEngine';
+import { sanitizeGenericText } from '../utils/inputSanitizer';
 
 type ProfileMenuItem = {
   icon: string;
@@ -52,13 +53,14 @@ export function ProfileScreen() {
   const avatarUrl = localAvatarUri || legacyAvatar;
 
   const handleJoinFamily = async () => {
-    if (!user?.id || !joinCodeInput.trim()) {
+    const sanitizedCode = sanitizeGenericText(joinCodeInput);
+    if (!user?.id || !sanitizedCode) {
       Alert.alert('Código', 'Digite o código de 8 caracteres.');
       return;
     }
     setBusy(true);
     try {
-      await joinByCode(joinCodeInput.trim());
+      await joinByCode(sanitizedCode);
       await initialSync(user.id);
       bumpDataRevision();
       await refreshFamily();

@@ -21,6 +21,7 @@ import { GoogleLogo } from '../components/GoogleLogo';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { C_light as C, R } from '../styles/theme';
 import { validatePassword, PASSWORD_MIN_LENGTH } from '../utils/passwordPolicy';
+import { sanitizeEmail } from '../utils/inputSanitizer';
 
 interface Props {
   onNavigateRegister: () => void;
@@ -69,8 +70,9 @@ export function LoginScreen({ onNavigateRegister }: Props) {
 
   function validate(): boolean {
     const errs: typeof errors = {};
-    if (!email.trim())            errs.email    = 'Informe seu e-mail.';
-    else if (!email.includes('@')) errs.email   = 'E-mail inválido.';
+    const sanitizedEmail = sanitizeEmail(email);
+    if (!sanitizedEmail)               errs.email    = 'Informe seu e-mail.';
+    else if (!sanitizedEmail.includes('@')) errs.email   = 'E-mail inválido.';
     if (!password)                errs.password = 'Informe sua senha.';
     else {
       const pwdCheck = validatePassword(password);
@@ -124,7 +126,7 @@ export function LoginScreen({ onNavigateRegister }: Props) {
     if (!validate()) return;
     setSubmitting(true);
     try {
-      await signIn(email, password);
+      await signIn(sanitizeEmail(email), password);
       // Sucesso → AuthContext atualiza o user → App redireciona automaticamente
       setFailedAttempts(0);
       setLockLevel(0);
@@ -216,7 +218,7 @@ export function LoginScreen({ onNavigateRegister }: Props) {
                   // redirectTo garante que o link do e-mail abra o app (deep link)
                   // em vez de redirecionar para localhost:3000
                   const redirectTo = Linking.createURL('reset-password');
-                  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+                  const { error } = await supabase.auth.resetPasswordForEmail(sanitizeEmail(email), {
                     redirectTo,
                   });
                   if (error) throw error;
