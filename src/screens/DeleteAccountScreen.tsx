@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -14,22 +15,20 @@ import { useAuth } from '../context/AuthContext';
 import { useFamily } from '../context/FamilyContext';
 import { supabase } from '../services/supabase';
 import { Card } from '../components/Shared';
-import { SUPPORT_EMAIL } from '../constants/legal';
+import { deleteUserDatabase } from '../db/dbInstance';
+import { removeLocalAvatar } from '../services/localAvatar';
+import { purgeAllBackupDataForUser } from '../services/backupPassphrase';
+import { clearStoredGoogleTokens } from '../services/googleAccessToken';
+import { SUPPORT_EMAIL, DELETE_ACCOUNT_URL } from '../constants/legal';
 
 export function DeleteAccountScreen() {
   const navigation = useNavigation<any>();
   const { C, s } = useAppTheme();
   const { user, signOut } = useAuth();
-  const { role, familyId } = useFamily();
+  const { role } = useFamily();
   const [busy, setBusy] = useState(false);
 
   const isOwner = role === 'owner';
-  const now = new Date().toISOString();
-  const deletionDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  });
 
   async function handleDeleteAccount() {
     if (!user?.id) return;
@@ -37,8 +36,8 @@ export function DeleteAccountScreen() {
     Alert.alert(
       'Confirmar exclusão',
       isOwner
-        ? 'Sua conta, família e todos os dados serão marcados para exclusão e removidos em 30 dias. Esta ação não pode ser desfeita. Deseja continuar?'
-        : 'Sua conta e todos os seus dados serão marcados para exclusão e removidos em 30 dias. Esta ação não pode ser desfeita. Deseja continuar?',
+        ? 'Sua conta, família e TODOS os dados serão excluídos IMEDIATAMENTE. Esta ação é permanente e irreversível. Deseja continuar?'
+        : 'Sua conta e seus dados serão excluídos IMEDIATAMENTE. Esta ação é permanente e irreversível. Deseja continuar?',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -55,32 +54,42 @@ export function DeleteAccountScreen() {
     setBusy(true);
 
     try {
-      // Soft delete: marca o usuário como pendente de exclusão
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ deleted_at: now })
-        .eq('id', user.id);
+      // 1. Chamar Edge Function para deletar tudo no servidor
+      const { error: fnError } = await supabase.functions.invoke('delete-account', {
+        method: 'POST',
+      });
 
-      if (profileError) throw profileError;
-
-      // Se for owner, marca a família inteira para exclusão
-      if (isOwner && familyId) {
-        const { error: familyError } = await supabase
-          .from('families')
-          .update({ deleted_at: now })
-          .eq('id', familyId);
-
-        if (familyError) throw familyError;
+      if (fnError) {
+        throw fnError;
       }
 
-      // Faz logout imediatamente após marcar para exclusão
-      await signOut();
+      // 2. Limpar dados locais em paralelo
+      await Promise.all([
+        deleteUserDatabase(user.id),
+        removeLocalAvatar(user.id),
+        purgeAllBackupDataForUser(user.id),
+        clearStoredGoogleTokens(),
+      ]);
 
+      // 3. signOut para limpar estado de sessão
+      await signOut();
     } catch (err) {
       setBusy(false);
+      const message = err instanceof Error ? err.message : 'Erro desconhecido';
+      Alert.alert(
+        'Erro ao excluir conta',
+        `Não foi possível excluir sua conta: ${message}. Tente novamente ou entre em contato com ${SUPPORT_EMAIL}.`
+      );
+    }
+  }
+
+  async function openWebDeletionPage() {
+    try {
+      await Linking.openURL(DELETE_ACCOUNT_URL);
+    } catch {
       Alert.alert(
         'Erro',
-        `Não foi possível processar a exclusão. Tente novamente ou entre em contato com ${SUPPORT_EMAIL}.`
+        'Não foi possível abrir a página. Acesse manualmente: valtun.com.br/excluir-conta'
       );
     }
   }
@@ -91,7 +100,6 @@ export function DeleteAccountScreen() {
         contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Ícone de alerta */}
         <View style={{ alignItems: 'center', marginBottom: 24, marginTop: 8 }}>
           <View
             style={{
@@ -114,7 +122,20 @@ export function DeleteAccountScreen() {
           </Text>
         </View>
 
-        {/* O que será excluído */}
+        <Card style={{ marginBottom: 14, borderWidth: 1, borderColor: C.danger, backgroundColor: C.dangerLight }}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+            <Text style={{ fontSize: 20 }}>⚠️</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[s.settingLabel, { color: C.danger, marginBottom: 4 }]}>
+                Exclusão imediata
+              </Text>
+              <Text style={[s.txMeta, { color: C.danger }]}>
+                Ao confirmar, sua conta e todos os dados associados serão excluídos IMEDIATAMENTE dos nossos servidores e deste aparelho. Não há como desfazer.
+              </Text>
+            </View>
+          </View>
+        </Card>
+
         <Card style={{ marginBottom: 14 }}>
           <Text style={[s.formLabel, { marginBottom: 12 }]}>O QUE SERÁ EXCLUÍDO</Text>
 
@@ -122,20 +143,21 @@ export function DeleteAccountScreen() {
             { icon: '💰', text: 'Todos os seus lançamentos e transações' },
             { icon: '📂', text: 'Categorias personalizadas' },
             { icon: '🔁', text: 'Contas recorrentes configuradas' },
-            { icon: '🎯', text: 'Metas financeiras' },
-            { icon: '☁️', text: 'Backups na nuvem' },
+            { icon: '🎯', text: 'Metas financeiras (locais)' },
+            { icon: '☁️', text: 'Backups cifrados na nuvem' },
             ...(isOwner
               ? [{ icon: '👨‍👩‍👧', text: 'Família e dados de todos os membros vinculados' }]
               : []),
+            { icon: '📱', text: 'Dados locais deste aparelho (cache, avatar, etc.)' },
             { icon: '👤', text: 'Seu perfil e credenciais de acesso' },
-          ].map((item, i) => (
+          ].map((item, i, arr) => (
             <View
               key={i}
               style={{
                 flexDirection: 'row',
                 alignItems: 'flex-start',
                 gap: 10,
-                marginBottom: i < 5 ? 10 : 0,
+                marginBottom: i < arr.length - 1 ? 10 : 0,
               }}
             >
               <Text style={{ fontSize: 16, marginTop: 1 }}>{item.icon}</Text>
@@ -144,22 +166,6 @@ export function DeleteAccountScreen() {
           ))}
         </Card>
 
-        {/* Prazo */}
-        <Card style={{ marginBottom: 14, borderWidth: 1, borderColor: C.border }}>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-            <Text style={{ fontSize: 24 }}>📅</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={[s.settingLabel, { marginBottom: 4 }]}>Exclusão em 30 dias</Text>
-              <Text style={s.txMeta}>
-                Seus dados serão removidos definitivamente a partir de{' '}
-                <Text style={{ fontWeight: '700', color: C.text }}>{deletionDate}</Text>.
-                Até lá você não poderá mais acessar a conta.
-              </Text>
-            </View>
-          </View>
-        </Card>
-
-        {/* Aviso owner */}
         {isOwner && (
           <Card
             style={{
@@ -170,20 +176,35 @@ export function DeleteAccountScreen() {
             }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-              <Text style={{ fontSize: 20 }}>⚠️</Text>
+              <Text style={{ fontSize: 20 }}>👨‍👩‍👧</Text>
               <View style={{ flex: 1 }}>
                 <Text style={[s.settingLabel, { color: C.danger, marginBottom: 4 }]}>
                   Você é dono da família
                 </Text>
                 <Text style={[s.txMeta, { color: C.danger }]}>
-                  Ao excluir sua conta, a família inteira e os dados de todos os membros vinculados também serão marcados para exclusão.
+                  Ao excluir sua conta, a família inteira e os dados de todos os membros vinculados também serão excluídos.
                 </Text>
               </View>
             </View>
           </Card>
         )}
 
-        {/* Alternativa */}
+        <Card style={{ marginBottom: 14 }}>
+          <Text style={[s.formLabel, { marginBottom: 8 }]}>EXCLUSÃO PELA WEB</Text>
+          <Text style={[s.txMeta, { marginBottom: 12 }]}>
+            Prefere excluir pela web? Você também pode solicitar a exclusão da sua conta através do nosso site.
+          </Text>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => void openWebDeletionPage()}
+            style={[s.modalBtn, { backgroundColor: C.card, borderWidth: 1, borderColor: C.primary }]}
+          >
+            <Text style={{ color: C.primary, fontWeight: '700', fontSize: 14, textAlign: 'center' }}>
+              Abrir página de exclusão web ↗
+            </Text>
+          </TouchableOpacity>
+        </Card>
+
         <Card style={{ marginBottom: 28 }}>
           <Text style={[s.formLabel, { marginBottom: 8 }]}>ANTES DE EXCLUIR</Text>
           <Text style={s.txMeta}>
@@ -192,11 +213,10 @@ export function DeleteAccountScreen() {
           </Text>
         </Card>
 
-        {/* Botão de exclusão */}
         {busy ? (
           <View style={{ alignItems: 'center', paddingVertical: 16 }}>
             <ActivityIndicator color={C.danger} />
-            <Text style={[s.txMeta, { marginTop: 8 }]}>Processando solicitação…</Text>
+            <Text style={[s.txMeta, { marginTop: 8 }]}>Excluindo conta e dados…</Text>
           </View>
         ) : (
           <TouchableOpacity
@@ -211,7 +231,7 @@ export function DeleteAccountScreen() {
             ]}
           >
             <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>
-              Solicitar exclusão da conta
+              Excluir minha conta agora
             </Text>
           </TouchableOpacity>
         )}

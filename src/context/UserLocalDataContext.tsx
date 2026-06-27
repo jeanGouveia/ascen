@@ -27,6 +27,7 @@ import {
 import {
   getCachedBackupPassphrase,
   hasBackupPassphraseConfigured,
+  purgeLegacyCachedPassphrases,
   setBackupPassphrase,
   verifyBackupPassphrase,
 } from '../services/backupPassphrase';
@@ -137,6 +138,9 @@ export function UserLocalDataProvider({ children }: { children: React.ReactNode 
         if (cancelled) return;
 
         await ensureUserFamily(user.id);
+        if (cancelled) return;
+
+        await purgeLegacyCachedPassphrases(user.id);
         if (cancelled) return;
 
         try {

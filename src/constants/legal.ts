@@ -28,6 +28,10 @@ export const PRIVACY_URL =
 export const TERMS_URL =
   process.env.EXPO_PUBLIC_TERMS_URL?.trim() || PRIVACY_URL_DEFAULT;
 
+  /** URL pública para exclusão de conta via web (obrigatória Play Store policy desde abril/2023). */
+export const DELETE_ACCOUNT_URL =
+  process.env.EXPO_PUBLIC_DELETE_ACCOUNT_URL?.trim() || 'https://valtun.com.br/excluir-conta';
+
 /** Versão atual dos documentos legais aceitos pelo usuário. */
 export const LEGAL_VERSION = '1.0.0';
 
