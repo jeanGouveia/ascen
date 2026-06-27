@@ -16,6 +16,7 @@ import { ensureUserFamily } from '../services/family';
 import { initialSync } from '../services/sync/syncEngine';
 import { countPendingOutbox } from '../services/sync/outbox';
 import { useSyncStore } from '../store/syncStore';
+import { logger } from '../utils/logger';
 import {
   downloadEncryptedSnapshot,
   restoreFromEncryptedSnapshot,
@@ -149,7 +150,7 @@ export function UserLocalDataProvider({ children }: { children: React.ReactNode 
           useSyncStore.getState().setPendingCount(pending);
           useSyncStore.getState().setLastSyncAt(new Date().toISOString());
         } catch (syncErr) {
-          console.warn('Sync inicial:', syncErr instanceof Error ? syncErr.message : syncErr);
+          logger.warn('Sync inicial:', syncErr instanceof Error ? syncErr.message : syncErr);
           useSyncStore.getState().setStatus('offline');
         }
 

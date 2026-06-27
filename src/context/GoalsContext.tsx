@@ -4,6 +4,7 @@ import { useAuth } from './AuthContext';
 import { useUserLocal } from './UserLocalDataContext';
 import { Goal } from '../types';
 import * as localDb from '../db/localDataDb';
+import { logger } from '../utils/logger';
 
 interface GoalsContextType {
   goals: Goal[];
@@ -34,7 +35,7 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
       const rows = await localDb.listGoals();
       setGoals(rows);
     } catch (e) {
-      console.error('Metas:', e instanceof Error ? e.message : e);
+      logger.error('Metas:', e instanceof Error ? e.message : e);
     } finally {
       setLoading(false);
     }

@@ -1,11 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
+import { logger } from '../utils/logger';
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
 const SUPABASE_ANON = process.env.EXPO_PUBLIC_SUPABASE_KEY ?? '';
 
 if (__DEV__ && (!SUPABASE_URL || !SUPABASE_ANON)) {
-  console.warn('Supabase: variáveis de ambiente não configuradas.');
+  logger.warn('Supabase: variáveis de ambiente não configuradas.');
 }
 
 const ExpoSecureStoreAdapter = {

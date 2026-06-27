@@ -6,6 +6,7 @@ import { Category } from '../types';
 import { CATEGORIES } from '../constants/finance';
 import * as localDb from '../db/localDataDb';
 import { scheduleSync } from '../services/sync/syncEngine';
+import { logger } from '../utils/logger';
 
 interface CategoryContextType {
   categories: Category[];
@@ -58,7 +59,7 @@ export const CategoryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const rows = await localDb.listCustomCategories();
       setCustomCategories(rows);
     } catch (err: unknown) {
-      console.error('Erro ao buscar categorias:', err instanceof Error ? err.message : err);
+      logger.error('Erro ao buscar categorias:', err instanceof Error ? err.message : err);
     } finally {
       setLoading(false);
     }

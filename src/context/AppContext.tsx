@@ -5,6 +5,7 @@ import { useUserLocal } from './UserLocalDataContext';
 import { Transaction, TxType, TxModalState } from '../types';
 import * as localDb from '../db/localDataDb';
 import { scheduleSync } from '../services/sync/syncEngine';
+import { logger } from '../utils/logger';
 
 interface AppContextType {
   transactions: Transaction[];
@@ -34,7 +35,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const rows = await localDb.listTransactions();
       setTransactions(rows);
     } catch (error: unknown) {
-      console.error('Erro ao buscar transações:', error instanceof Error ? error.message : error);
+      logger.error('Erro ao buscar transações:', error instanceof Error ? error.message : error);
     } finally {
       setLoading(false);
     }

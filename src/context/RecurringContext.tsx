@@ -13,6 +13,7 @@ import { scheduleSync } from '../services/sync/syncEngine';
 import { confirmDateForRule, isRuleActiveInCurrentMonth } from '../utils/recurringDates';
 import { buildProjectedTransaction, transactionMatchesRuleMonth } from '../utils/recurringTransactions';
 import { syncRecurringProjectedTransactions } from '../services/recurringProjections';
+import { logger } from '../utils/logger';
 import { scheduleRecurringNotifications } from '../services/notificationScheduler';
 import { usePreferences } from './PreferencesContext';
 
@@ -116,7 +117,7 @@ export const RecurringProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const rows = await localDb.listRecurringRows();
       setRules(rows.map(mapRow));
     } catch (err: unknown) {
-      console.error('RecurringContext.reload:', err instanceof Error ? err.message : err);
+      logger.error('RecurringContext.reload:', err instanceof Error ? err.message : err);
     } finally {
       setLoading(false);
     }

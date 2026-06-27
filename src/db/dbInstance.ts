@@ -1,5 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 import * as FileSystem from 'expo-file-system/legacy';
+import { logger } from '../utils/logger';
 
 let dbInstance: SQLite.SQLiteDatabase | null = null;
 let dbUserId: string | null = null;
@@ -59,6 +60,6 @@ export async function deleteUserDatabase(userId: string): Promise<void> {
       }
     }
   } catch (e) {
-    console.warn('Erro ao deletar arquivo SQLite:', e);
+    logger.warn('Erro ao deletar arquivo SQLite:', e);
   }
 }

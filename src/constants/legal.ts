@@ -9,6 +9,8 @@
  * destas constantes — NÃO hardcode e-mail em outros arquivos.
  */
 
+import { logger } from '../utils/logger';
+
 /** Nome do encarregado (DPO) — deve aparecer na Política de Privacidade e em telas de suporte. */
 export const DPO_NAME = 'Valtun';
 
@@ -39,5 +41,5 @@ export const LEGAL_VERSION = '1.0.0';
 export const LEGAL_EFFECTIVE_DATE = '2025-06-25';
 
 if (__DEV__ && !process.env.EXPO_PUBLIC_PRIVACY_URL?.trim()) {
-  console.warn('[Ascen] EXPO_PUBLIC_PRIVACY_URL não configurada. Usando URL padrão:', PRIVACY_URL_DEFAULT);
+  logger.warn('[Ascen] EXPO_PUBLIC_PRIVACY_URL não configurada. Usando URL padrão:', PRIVACY_URL_DEFAULT);
 }
