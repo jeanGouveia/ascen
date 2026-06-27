@@ -53,9 +53,11 @@ CREATE POLICY "families_update_owner" ON families
   FOR UPDATE
   USING (
     owner_id = auth.uid()
+    AND deleted_at IS NULL
   )
   WITH CHECK (
     owner_id = auth.uid()
+    AND deleted_at IS NULL
   );
 
 -- Não permitir DELETE direto (soft-delete via UPDATE em deleted_at).
@@ -73,14 +75,17 @@ CREATE POLICY "family_members_select_own" ON family_members
     user_id = auth.uid()
   );
 
--- Permite INSERT apenas quando o próprio usuário está entrando (via RPC).
+-- Permite INSERT apenas quando o próprio usuário está entrando como member.
 -- A RPC join_family_by_code é SECURITY DEFINER e bypassa RLS.
 -- Este INSERT policy protege caso alguém tente inserir diretamente.
+-- IMPORTANTE: role é obrigatoriamente 'member'. Owner só pode ser criado via
+-- fluxo administrativo (Edge Function, migration ou service role).
 DROP POLICY IF EXISTS "family_members_insert_own" ON family_members;
 CREATE POLICY "family_members_insert_own" ON family_members
   FOR INSERT
   WITH CHECK (
     user_id = auth.uid()
+    AND role = 'member'
   );
 
 -- Não permitir UPDATE nem DELETE direto (apenas via RPC administrativa).
