@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -35,6 +35,14 @@ export function LoginScreen({ onNavigateRegister }: Props) {
   const [errors, setErrors]     = useState<{ email?: string; password?: string }>({});
   const [submitting, setSubmitting] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [blockedUntil, setBlockedUntil] = useState<number | null>(null);
+  const [remainingSeconds, setRemainingSeconds] = useState(0);
+  const [lockLevel, setLockLevel] = useState(0);
+  const [lastAttemptAt, setLastAttemptAt] = useState<number | null>(null);
+
+  const LOCK_DURATIONS = [30, 60, 120, 300];
+  const RESET_AFTER_MINUTES = 15;
 
   const handleEmailChange = useCallback((v: string) => {
     setEmail(v);
@@ -73,15 +81,67 @@ export function LoginScreen({ onNavigateRegister }: Props) {
     return true;
   }
 
+  // Timer para rate limiting
+  useEffect(() => {
+    if (!blockedUntil) {
+      setRemainingSeconds(0);
+      return;
+    }
+
+    const updateRemaining = () => {
+      const now = Date.now();
+      const remaining = Math.max(0, Math.ceil((blockedUntil - now) / 1000));
+      setRemainingSeconds(remaining);
+
+      if (remaining === 0) {
+        setBlockedUntil(null);
+        setFailedAttempts(0);
+        // NÃO resetar lockLevel aqui - mantém o nível progressivo
+      }
+    };
+
+    updateRemaining();
+    const interval = setInterval(updateRemaining, 1000);
+    return () => clearInterval(interval);
+  }, [blockedUntil]);
+
   async function handleLogin() {
+    if (blockedUntil && Date.now() < blockedUntil) {
+      return;
+    }
+
+    // Reset após inatividade de 15 minutos
+    if (lastAttemptAt) {
+      const inactiveMs = Date.now() - lastAttemptAt;
+      if (inactiveMs > RESET_AFTER_MINUTES * 60 * 1000) {
+        setLockLevel(0);
+        setFailedAttempts(0);
+      }
+    }
+
+    setLastAttemptAt(Date.now());
+
     if (!validate()) return;
     setSubmitting(true);
     try {
       await signIn(email, password);
       // Sucesso → AuthContext atualiza o user → App redireciona automaticamente
+      setFailedAttempts(0);
+      setLockLevel(0);
+      setBlockedUntil(null);
     } catch (err: any) {
       Alert.alert('Não foi possível entrar', err.message);
       shake();
+      setFailedAttempts(prev => {
+        const newAttempts = prev + 1;
+        if (newAttempts >= 5) {
+          const seconds = LOCK_DURATIONS[Math.min(lockLevel, LOCK_DURATIONS.length - 1)];
+          setBlockedUntil(Date.now() + seconds * 1000);
+          setFailedAttempts(0);
+          setLockLevel(prev => prev + 1);
+        }
+        return newAttempts;
+      });
     } finally {
       setSubmitting(false);
     }
@@ -172,12 +232,21 @@ export function LoginScreen({ onNavigateRegister }: Props) {
               <Text style={s.forgotText}>Esqueceu a senha?</Text>
             </TouchableOpacity>
 
+            {/* Rate limiting message */}
+            {remainingSeconds > 0 && (
+              <View style={{ alignItems: 'center', marginBottom: 16 }}>
+                <Text style={{ color: C.danger, fontSize: 13, textAlign: 'center' }}>
+                  Você excedeu o número de tentativas. Aguarde {remainingSeconds} segundos antes de tentar novamente.
+                </Text>
+              </View>
+            )}
+
             {/* Botão principal */}
             <TouchableOpacity
-              style={[s.primaryBtn, (submitting || loading) && { opacity: 0.7 }]}
+              style={[s.primaryBtn, (submitting || loading || remainingSeconds > 0) && { opacity: 0.5 }]}
               onPress={handleLogin}
               activeOpacity={0.85}
-              disabled={submitting || loading}
+              disabled={submitting || loading || remainingSeconds > 0}
             >
               {submitting
                 ? <ActivityIndicator color="#fff" />
