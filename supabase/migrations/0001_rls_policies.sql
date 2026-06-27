@@ -98,6 +98,7 @@ CREATE POLICY "categories_select_family" ON categories
   FOR SELECT
   USING (
     family_id = public.current_user_family_id()
+    AND deleted_at IS NULL
   );
 
 DROP POLICY IF EXISTS "categories_insert_family" ON categories;
@@ -132,6 +133,7 @@ CREATE POLICY "transactions_select_family" ON transactions
   FOR SELECT
   USING (
     family_id = public.current_user_family_id()
+    AND deleted_at IS NULL
   );
 
 DROP POLICY IF EXISTS "transactions_insert_family" ON transactions;
@@ -166,6 +168,7 @@ CREATE POLICY "recurring_rules_select_family" ON recurring_rules
   FOR SELECT
   USING (
     family_id = public.current_user_family_id()
+    AND deleted_at IS NULL
   );
 
 DROP POLICY IF EXISTS "recurring_rules_insert_family" ON recurring_rules;
