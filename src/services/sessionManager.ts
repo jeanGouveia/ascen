@@ -14,11 +14,33 @@ export class SessionManager {
   private backgroundTimestamp: number | null = null;
   private lastActivityTimestamp: number;
   private onLock: LockCallback;
+  private isRunning: boolean = false;
 
   constructor(onLock: LockCallback) {
     this.onLock = onLock;
     this.lastActivityTimestamp = Date.now();
+  }
+
+  /**
+   * Inicia o monitoramento da sessão.
+   */
+  start(): void {
+    if (this.isRunning) return;
+    this.isRunning = true;
+    this.lastActivityTimestamp = Date.now();
     this.resetInactivityTimer();
+  }
+
+  /**
+   * Para o monitoramento da sessão e limpa todos os timers.
+   */
+  stop(): void {
+    this.isRunning = false;
+    if (this.inactivityTimer) {
+      clearTimeout(this.inactivityTimer);
+      this.inactivityTimer = null;
+    }
+    this.backgroundTimestamp = null;
   }
 
   /**

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { SessionManager } from '../services/sessionManager';
+import { useAuth } from './AuthContext';
 
 interface SessionContextType {
   locked: boolean;
@@ -29,6 +30,7 @@ export function SessionProvider({ children }: Props) {
   const [locked, setLocked] = useState(false);
   const [lastActivity, setLastActivity] = useState(Date.now());
   const managerRef = useRef<SessionManager | null>(null);
+  const { user, loading } = useAuth();
 
   // Inicializa SessionManager
   useEffect(() => {
@@ -41,6 +43,21 @@ export function SessionProvider({ children }: Props) {
       manager.destroy();
     };
   }, []);
+
+  // Inicia/para monitoramento baseado no estado de autenticação
+  useEffect(() => {
+    if (!managerRef.current) return;
+
+    if (!loading && user) {
+      // Usuário autenticado - inicia monitoramento
+      managerRef.current.start();
+    } else {
+      // Usuário não autenticado ou carregando - para monitoramento e limpa estado
+      managerRef.current.stop();
+      setLocked(false);
+      setLastActivity(Date.now());
+    }
+  }, [user, loading]);
 
   // Integração com AppState (background/foreground)
   useEffect(() => {

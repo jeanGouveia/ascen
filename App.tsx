@@ -7,7 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as Linking from 'expo-linking';
 import { PreferencesProvider, usePreferences } from './src/context/PreferencesContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
-import { SessionProvider } from './src/context/SessionContext';
+import { SessionProvider, useSession } from './src/context/SessionContext';
 import { UserLocalDataProvider } from './src/context/UserLocalDataContext';
 import { FamilyProvider } from './src/context/FamilyContext';
 import { AppProvider, useApp } from './src/context/AppContext';
@@ -19,6 +19,7 @@ import { AppNavigator } from './src/screens/AppNavigator';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { RegisterScreen } from './src/screens/RegisterScreen';
 import { ResetPasswordScreen } from './src/screens/ResetPasswordScreen'; // ← tela nova
+import { SessionLockScreen } from './src/screens/SessionLockScreen';
 import { TransactionModal } from './src/components/TransactionModal';
 import { CoachMarksOverlay } from './src/components/CoachMarksOverlay';
 import { getColors, C_light } from './src/styles/theme';
@@ -172,6 +173,7 @@ function AppContent() {
   const { modalState, closeTxModal } = useApp();
   const { darkMode } = usePreferences();
   const { shouldShow, isReady, startOnboarding } = useOnboarding();
+  const { locked } = useSession();
 
   React.useEffect(() => {
     if (isReady && shouldShow) {
@@ -186,6 +188,7 @@ function AppContent() {
       <AppNavigator />
       <TransactionModal state={modalState} onClose={closeTxModal} />
       <CoachMarksOverlay />
+      {locked && <SessionLockScreen />}
     </>
   );
 }
