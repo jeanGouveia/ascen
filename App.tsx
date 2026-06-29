@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as Linking from 'expo-linking';
 import { PreferencesProvider, usePreferences } from './src/context/PreferencesContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { SessionProvider } from './src/context/SessionContext';
 import { UserLocalDataProvider } from './src/context/UserLocalDataContext';
 import { FamilyProvider } from './src/context/FamilyContext';
 import { AppProvider, useApp } from './src/context/AppContext';
@@ -198,21 +199,23 @@ export default function App() {
         <PreferencesProvider>
           <ThemedNavigation>
             <AuthProvider>
-              <UserLocalDataProvider>
-                <FamilyProvider>
-                  <AppProvider>
-                    <CategoryProvider>
-                      <RecurringProvider>
-                        <GoalsProvider>
-                          <OnboardingProvider>
-                            <AuthGate />
-                          </OnboardingProvider>
-                        </GoalsProvider>
-                      </RecurringProvider>
-                    </CategoryProvider>
-                  </AppProvider>
-                </FamilyProvider>
-              </UserLocalDataProvider>
+              <SessionProvider>
+                <UserLocalDataProvider>
+                  <FamilyProvider>
+                    <AppProvider>
+                      <CategoryProvider>
+                        <RecurringProvider>
+                          <GoalsProvider>
+                            <OnboardingProvider>
+                              <AuthGate />
+                            </OnboardingProvider>
+                          </GoalsProvider>
+                        </RecurringProvider>
+                      </CategoryProvider>
+                    </AppProvider>
+                  </FamilyProvider>
+                </UserLocalDataProvider>
+              </SessionProvider>
             </AuthProvider>
           </ThemedNavigation>
         </PreferencesProvider>
