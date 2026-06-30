@@ -17,8 +17,8 @@ import { supabase } from '../services/supabase';
 import { Card } from '../components/Shared';
 import { deleteUserDatabase } from '../db/dbInstance';
 import { removeLocalAvatar } from '../services/localAvatar';
-import { purgeAllBackupDataForUser } from '../services/backupPassphrase';
-import { clearStoredGoogleTokens } from '../services/googleAccessToken';
+import { purgeAllBackupDataForUser } from '../experimental/backup/services/backupPassphrase';
+import { clearStoredGoogleTokens } from '../experimental/backup/services/googleAccessToken';
 import { SUPPORT_EMAIL, DELETE_ACCOUNT_URL } from '../constants/legal';
 
 export function DeleteAccountScreen() {

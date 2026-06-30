@@ -24,17 +24,17 @@ import {
   getBackupStorageTarget,
   setBackupStorageTarget,
   type BackupStorageTarget,
-} from '../services/cloudSnapshot';
+} from '../experimental/backup/services/cloudSnapshot';
 import {
   getCachedBackupPassphrase,
   hasBackupPassphraseConfigured,
   purgeLegacyCachedPassphrases,
   setBackupPassphrase,
   verifyBackupPassphrase,
-} from '../services/backupPassphrase';
+} from '../experimental/backup/services/backupPassphrase';
 import { localAvatarExists, localAvatarPath } from '../services/localAvatar';
-import { hasGoogleDriveAccess } from '../services/googleDriveSnapshot';
-import { isGoogleDriveConfigured } from '../config/googleOAuth';
+import { hasGoogleDriveAccess } from '../experimental/backup/services/googleDriveSnapshot';
+import { isGoogleDriveConfigured } from '../experimental/backup/config/googleOAuth';
 import { C_light } from '../styles/theme';
 
 interface UserLocalDataContextType {

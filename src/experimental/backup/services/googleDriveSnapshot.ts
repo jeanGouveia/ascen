@@ -1,5 +1,5 @@
 import { GOOGLE_DRIVE_SNAPSHOT_NAME } from '../constants/cloudBackup';
-import { uint8ToArrayBuffer } from '../utils/binary';
+import { uint8ToArrayBuffer } from '../../../utils/binary';
 import { getStoredGoogleAccessToken, isGoogleAccessTokenValid } from './googleAccessToken';
 import { isGoogleDriveConfigured } from '../config/googleOAuth';
 

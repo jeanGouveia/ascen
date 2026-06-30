@@ -4,9 +4,9 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase';
-import { clearStoredGoogleTokens } from '../services/googleAccessToken';
-import { authorizeGoogleDriveDirect } from '../services/googleDriveAuthDirect';
-import { isGoogleDriveConfigured, getGoogleDriveSetupHint } from '../config/googleOAuth';
+import { clearStoredGoogleTokens } from '../experimental/backup/services/googleAccessToken';
+import { authorizeGoogleDriveDirect } from '../experimental/backup/services/googleDriveAuthDirect';
+import { isGoogleDriveConfigured, getGoogleDriveSetupHint } from '../experimental/backup/config/googleOAuth';
 import { sanitizeEmail, sanitizeName } from '../utils/inputSanitizer';
 
 WebBrowser.maybeCompleteAuthSession();

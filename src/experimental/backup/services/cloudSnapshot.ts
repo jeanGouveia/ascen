@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase } from '../../../services/supabase';
 import {
   SNAPSHOT_STORAGE_BUCKET,
   personalSnapshotPath,
@@ -11,10 +11,10 @@ import {
   metaSet,
   metaGet,
   type SnapshotTablesV1,
-} from '../db/localDataDb';
-import { readAvatarAsBase64, writeAvatarFromBase64, removeLocalAvatar } from './localAvatar';
-import { getLocalFamilyId } from './family';
-import { uint8ToArrayBuffer, uint8ToBase64, base64ToUint8 } from '../utils/binary';
+} from '../../../db/localDataDb';
+import { readAvatarAsBase64, writeAvatarFromBase64, removeLocalAvatar } from '../../../services/localAvatar';
+import { getLocalFamilyId } from '../../../services/family';
+import { uint8ToArrayBuffer, uint8ToBase64, base64ToUint8 } from '../../../utils/binary';
 import {
   downloadFromGoogleDrive,
   getGoogleAccessToken,
