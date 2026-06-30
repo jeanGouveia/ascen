@@ -1,5 +1,3 @@
-import { supabase } from '../supabase';
-import { bindNum, bindStr, bindStrNull, getDb, metaGet, metaSet } from '../../db/localDataDb';
 import { getLocalFamilyId } from '../family';
 import {
   countPendingOutbox,
@@ -7,9 +5,11 @@ import {
   markOutboxFailed,
   removeOutboxItem,
 } from './outbox';
-import { categoryToRemote, recurringToRemote, transactionToRemote } from './mappers';
 import { useSyncStore } from '../../store/syncStore';
-import type { DbCategory, DbRecurringRule, DbTransaction } from '../../types/database';
+import { pullCategories, pushCategory, deleteCategoryRemote } from './entities/categories';
+import { pullTransactions, pushTransaction, deleteTransactionRemote } from './entities/transactions';
+import { pullRecurringRules, pushRecurringRule, deleteRecurringRuleRemote } from './entities/recurringRules';
+import { metaGet, metaSet } from '../../db/localDataDb';
 
 const META_LAST_PULL = 'sync_last_pull_at';
 const META_LAST_SYNC_FAMILY_ID = 'sync_last_family_id';
@@ -49,175 +49,15 @@ export async function resetSyncPullCursor(): Promise<void> {
   if (familyId) await metaSet(META_LAST_SYNC_FAMILY_ID, familyId);
 }
 
-/** Aplica linha remota no SQLite (last-write-wins por updated_at). */
-async function upsertLocalFromRemote(
-  table: 'categories' | 'transactions' | 'recurring_rules',
-  row: Record<string, unknown>
-): Promise<void> {
-  const db = getDb();
-  const id = String(row.id);
-  const remoteUpdated = String(row.updated_at ?? '');
-  const deletedAt = row.deleted_at as string | null;
-
-  if (table === 'categories') {
-    if (deletedAt) {
-      await db.runAsync('DELETE FROM categories WHERE id = ?', [id]);
-      return;
-    }
-    const local = await db.getFirstAsync<{ updated_at: string }>(
-      'SELECT updated_at FROM categories WHERE id = ?',
-      [id]
-    );
-    if (local && local.updated_at > remoteUpdated) return;
-    await db.runAsync(
-      `INSERT INTO categories (id, name, icon, color, type, family_id, updated_at, deleted_at, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, NULL, COALESCE(?, datetime('now')))
-       ON CONFLICT(id) DO UPDATE SET
-         name=excluded.name, icon=excluded.icon, color=excluded.color, type=excluded.type,
-         family_id=excluded.family_id, updated_at=excluded.updated_at`,
-      [
-        id,
-        bindStr(row.name),
-        bindStr(row.icon),
-        bindStr(row.color),
-        bindStr(row.type),
-        bindStr(row.family_id),
-        remoteUpdated,
-        bindStrNull(row.created_at),
-      ]
-    );
-    return;
-  }
-
-  if (table === 'transactions') {
-    if (deletedAt) {
-      await db.runAsync('DELETE FROM transactions WHERE id = ?', [id]);
-      return;
-    }
-    const local = await db.getFirstAsync<{ updated_at: string }>(
-      'SELECT updated_at FROM transactions WHERE id = ?',
-      [id]
-    );
-    if (local && local.updated_at > remoteUpdated) return;
-    await db.runAsync(
-      `INSERT INTO transactions (
-        id, type, amount, description, category, category_icon, category_color, category_id,
-        date, payment_method, is_installment, installment_info, is_fixed, is_paid, notes,
-        family_id, updated_at, deleted_at, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, COALESCE(?, datetime('now')))
-      ON CONFLICT(id) DO UPDATE SET
-        type=excluded.type, amount=excluded.amount, description=excluded.description,
-        category=excluded.category, category_icon=excluded.category_icon, category_color=excluded.category_color,
-        category_id=excluded.category_id, date=excluded.date, payment_method=excluded.payment_method,
-        is_installment=excluded.is_installment, installment_info=excluded.installment_info,
-        is_fixed=excluded.is_fixed, is_paid=excluded.is_paid, notes=excluded.notes,
-        family_id=excluded.family_id, updated_at=excluded.updated_at`,
-      [
-        id,
-        bindStr(row.type),
-        bindNum(row.amount),
-        bindStr(row.description),
-        bindStr(row.category_name),
-        bindStr(row.category_icon) || '📦',
-        bindStr(row.category_color) || '#6B7897',
-        bindStrNull(row.category_id),
-        bindStr(row.date),
-        bindStr(row.payment_method) || 'Pix',
-        row.is_installment ? 1 : 0,
-        bindStrNull(row.installment_info),
-        row.is_recurring ? 1 : 0,
-        row.is_paid === false ? 0 : 1,
-        bindStrNull(row.notes),
-        bindStr(row.family_id),
-        remoteUpdated,
-        bindStrNull(row.created_at),
-      ]
-    );
-    return;
-  }
-
-  if (deletedAt) {
-    await db.runAsync('DELETE FROM recurring_rules WHERE id = ?', [id]);
-    return;
-  }
-  const local = await db.getFirstAsync<{ updated_at: string }>(
-    'SELECT updated_at FROM recurring_rules WHERE id = ?',
-    [id]
-  );
-  if (local && local.updated_at > remoteUpdated) return;
-  await db.runAsync(
-    `INSERT INTO recurring_rules (
-      id, type, description, amount, category, category_icon, category_color, category_id,
-      payment_method, day_of_month, frequency, active, last_confirmed, starts_on, family_id, updated_at, deleted_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
-    ON CONFLICT(id) DO UPDATE SET
-      type=excluded.type, description=excluded.description, amount=excluded.amount,
-      category=excluded.category, category_icon=excluded.category_icon, category_color=excluded.category_color,
-      category_id=excluded.category_id, payment_method=excluded.payment_method,
-      day_of_month=excluded.day_of_month, frequency=excluded.frequency, active=excluded.active,
-      last_confirmed=excluded.last_confirmed, starts_on=excluded.starts_on, family_id=excluded.family_id, updated_at=excluded.updated_at`,
-    [
-      id,
-      bindStr(row.type),
-      bindStr(row.description),
-      bindNum(row.amount),
-      bindStr(row.category_name),
-      bindStr(row.category_icon) || '📦',
-      bindStr(row.category_color) || '#6B7897',
-      bindStrNull(row.category_id),
-      bindStr(row.payment_method) || 'Pix',
-      bindNum(row.day_of_month),
-      bindStr(row.frequency),
-      row.active ? 1 : 0,
-      bindStrNull(row.last_confirmed),
-      bindStrNull(row.starts_on) ?? remoteUpdated.slice(0, 10),
-      bindStr(row.family_id),
-      remoteUpdated,
-    ]
-  );
-}
-
 export async function pullRemoteChanges(familyId: string): Promise<void> {
   await ensurePullCursorForFamily(familyId);
   const since = await getLastPullAt();
 
-  const [catRes, txRes, recRes] = await Promise.all([
-    supabase
-      .from('categories')
-      .select('*')
-      .eq('family_id', familyId)
-      .gt('updated_at', since)
-      .order('updated_at', { ascending: true }),
-    supabase
-      .from('transactions')
-      .select('*')
-      .eq('family_id', familyId)
-      .gt('updated_at', since)
-      .order('updated_at', { ascending: true }),
-    supabase
-      .from('recurring_rules')
-      .select('*')
-      .eq('family_id', familyId)
-      .gt('updated_at', since)
-      .order('updated_at', { ascending: true }),
+  await Promise.all([
+    pullCategories(familyId, since),
+    pullTransactions(familyId, since),
+    pullRecurringRules(familyId, since),
   ]);
-
-  if (catRes.error) throw new Error(catRes.error.message);
-  if (txRes.error) throw new Error(txRes.error.message);
-  if (recRes.error) throw new Error(recRes.error.message);
-
-  const db = getDb();
-  await db.withTransactionAsync(async () => {
-    for (const row of (catRes.data ?? []) as DbCategory[]) {
-      await upsertLocalFromRemote('categories', row as unknown as Record<string, unknown>);
-    }
-    for (const row of (txRes.data ?? []) as DbTransaction[]) {
-      await upsertLocalFromRemote('transactions', row as unknown as Record<string, unknown>);
-    }
-    for (const row of (recRes.data ?? []) as DbRecurringRule[]) {
-      await upsertLocalFromRemote('recurring_rules', row as unknown as Record<string, unknown>);
-    }
-  });
 
   await setLastPullAt(new Date().toISOString());
 }
@@ -230,39 +70,23 @@ async function pushOutboxItem(
   const payload = JSON.parse(item.payload) as Record<string, unknown>;
 
   if (item.operation === 'delete') {
-    const table =
-      item.entity === 'category'
-        ? 'categories'
-        : item.entity === 'transaction'
-          ? 'transactions'
-          : 'recurring_rules';
-    const { error } = await supabase
-      .from(table)
-      .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-      .eq('id', item.entity_id)
-      .eq('family_id', familyId);
-    if (error) throw new Error(error.message);
+    if (item.entity === 'category') {
+      await deleteCategoryRemote(item.entity_id, familyId);
+    } else if (item.entity === 'transaction') {
+      await deleteTransactionRemote(item.entity_id, familyId);
+    } else {
+      await deleteRecurringRuleRemote(item.entity_id, familyId);
+    }
     return;
   }
 
-  let remote: Record<string, unknown>;
   if (item.entity === 'category') {
-    remote = categoryToRemote(payload, familyId);
+    await pushCategory(payload, familyId);
   } else if (item.entity === 'transaction') {
-    remote = transactionToRemote(payload, familyId, userId);
+    await pushTransaction(payload, familyId, userId);
   } else {
-    remote = recurringToRemote(payload, familyId);
+    await pushRecurringRule(payload, familyId);
   }
-
-  const table =
-    item.entity === 'category'
-      ? 'categories'
-      : item.entity === 'transaction'
-        ? 'transactions'
-        : 'recurring_rules';
-
-  const { error } = await supabase.from(table).upsert(remote, { onConflict: 'id' });
-  if (error) throw new Error(error.message);
 }
 
 export async function pushLocalChanges(userId: string | null): Promise<void> {
