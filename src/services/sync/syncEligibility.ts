@@ -4,8 +4,9 @@
  * lido por gatilhos externos (ex.: NavigationContainer.onStateChange).
  *
  * Limpeza explícita via clearSyncEligibility() em logout, troca de usuário,
- * troca de família ou exclusão de conta — ver AuthContext.signOut() na
- * Sprint de autenticação para chamada síncrona imediata.
+ * troca de família ou exclusão de conta — a limpeza ocorre via
+ * SyncLifecycleContext ao reagir à mudança de user para null (efeito colateral
+ * do useEffect que observa user).
  */
 
 import { syncLog } from "../../utils/syncLogger";

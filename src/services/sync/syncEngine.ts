@@ -351,6 +351,96 @@ export async function runFullSync(userId: string | null, origin?: SyncReason): P
   }
 }
 
+export async function runPullOnly(userId: string | null, origin?: SyncReason): Promise<SyncResult> {
+  const syncStart = Date.now();
+  const resolvedOrigin = inferRunFullSyncOrigin(origin);
+  syncLog(
+    'runPullOnly()',
+    'phase=start',
+    `origin=${resolvedOrigin}`,
+    `userId=${userId ?? 'null'}`,
+  );
+
+  if (syncInFlight) {
+    syncLog('runPullOnly()', 'phase=aborted', `origin=${resolvedOrigin}`, 'reason=syncInFlight');
+    return {
+      success: false,
+      changedEntities: { goals: false, categories: false, recurring: false, transactions: false },
+      durationMs: Date.now() - syncStart,
+    };
+  }
+  const familyId = await getLocalFamilyId();
+  if (!familyId) {
+    syncLog('runPullOnly()', 'phase=aborted', `origin=${resolvedOrigin}`, 'reason=noFamilyId');
+    return {
+      success: false,
+      changedEntities: { goals: false, categories: false, recurring: false, transactions: false },
+      durationMs: Date.now() - syncStart,
+    };
+  }
+
+  if (!(await shouldRunPull())) {
+    syncLog('runPullOnly()', 'phase=skipped', `origin=${resolvedOrigin}`, 'reason=throttled');
+    return {
+      success: true,
+      changedEntities: { goals: false, categories: false, recurring: false, transactions: false },
+      durationMs: Date.now() - syncStart,
+    };
+  }
+
+  syncInFlight = true;
+  const store = useSyncStore.getState();
+  store.setStatus('syncing');
+  store.setLastError(null);
+
+  try {
+    const changedEntities = await runPullWithRetry(familyId);
+    store.setLastSyncAt(new Date().toISOString());
+    store.setStatus('idle');
+    syncLog(
+      'runPullOnly()',
+      'phase=end',
+      `origin=${resolvedOrigin}`,
+      `durationMs=${Date.now() - syncStart}`,
+      'result=ok',
+    );
+    const result: SyncResult = {
+      success: true,
+      changedEntities,
+      durationMs: Date.now() - syncStart,
+    };
+    syncLog('SYNC_CALLBACK', `goals=${result.changedEntities.goals}`, `categories=${result.changedEntities.categories}`, `transactions=${result.changedEntities.transactions}`, `recurring=${result.changedEntities.recurring}`);
+    if (syncCompletionCallback) {
+      syncCompletionCallback(result);
+    }
+    return result;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    store.setLastError(msg);
+    store.setStatus(isOnlineError(msg) ? 'offline' : 'error');
+    syncLog(
+      'runPullOnly()',
+      'phase=end',
+      `origin=${resolvedOrigin}`,
+      `durationMs=${Date.now() - syncStart}`,
+      'result=error',
+      `error=${msg}`,
+    );
+    const result: SyncResult = {
+      success: false,
+      changedEntities: { goals: false, categories: false, recurring: false, transactions: false },
+      durationMs: Date.now() - syncStart,
+    };
+    syncLog('SYNC_CALLBACK', `goals=${result.changedEntities.goals}`, `categories=${result.changedEntities.categories}`, `transactions=${result.changedEntities.transactions}`, `recurring=${result.changedEntities.recurring}`);
+    if (syncCompletionCallback) {
+      syncCompletionCallback(result);
+    }
+    return result;
+  } finally {
+    syncInFlight = false;
+  }
+}
+
 export function scheduleSync(userId: string | null, delayMs = 800): void {
   void listPendingOutbox().then(items => {
     syncLog(

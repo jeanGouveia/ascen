@@ -24,9 +24,10 @@ import { SessionLockScreen } from './src/screens/SessionLockScreen';
 import { TransactionModal } from './src/components/TransactionModal';
 import { CoachMarksOverlay } from './src/components/CoachMarksOverlay';
 import { getColors, C_light } from './src/styles/theme';
-import { requestSync } from './src/services/sync/syncCoordinator';
+import { requestPullOnly } from './src/services/sync/syncCoordinator';
 import { SyncReason } from './src/types/sync';
 import { syncLog } from './src/utils/syncLogger';
+import { getSyncEligibility } from './src/services/sync/syncEligibility';
 import * as SplashScreen from 'expo-splash-screen';
 import { supabase } from './src/services/supabase';
 
@@ -85,6 +86,13 @@ function ThemedNavigation({ children }: { children: React.ReactNode }) {
       `previousRoute=${previousRoute}`,
       `currentRoute=${currentRoute}`,
     );
+
+    if (currentRoute === previousRoute) return;
+
+    const eligibility = getSyncEligibility();
+    if (!eligibility.canSync) return;
+
+    void requestPullOnly(eligibility.userId, SyncReason.NAVIGATION);
   };
 
   return (
