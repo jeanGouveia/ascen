@@ -13,10 +13,11 @@ import {
   metaGet,
 } from '../db/localDataDb';
 import { ensureUserFamily } from '../services/family';
-import { initialSync } from '../services/sync/syncEngine';
+import { initialSync, registerSyncCompletionCallback, unregisterSyncCompletionCallback, hasDatabaseChanges } from '../services/sync/syncEngine';
 import { countPendingOutbox } from '../services/sync/outbox';
 import { useSyncStore } from '../store/syncStore';
 import { logger } from '../utils/logger';
+import { syncLog } from '../utils/syncLogger';
 import {
   downloadEncryptedSnapshot,
   restoreFromEncryptedSnapshot,
@@ -43,6 +44,7 @@ interface UserLocalDataContextType {
   retryInit: () => void;
   dataRevision: number;
   bumpDataRevision: () => void;
+  notifyDatabaseChanged: () => void;
   localAvatarUri: string | null;
   refreshLocalAvatar: () => Promise<void>;
   lastSnapshotUploadAt: string | null;
@@ -77,6 +79,26 @@ export function UserLocalDataProvider({ children }: { children: React.ReactNode 
   const [googleDriveReady, setGoogleDriveReady] = useState(false);
 
   const bumpDataRevision = useCallback(() => setDataRevision(r => r + 1), []);
+
+  const notifyDatabaseChanged = useCallback(() => {
+    syncLog('DATABASE_CHANGED', `before=${dataRevision}`, `after=${dataRevision + 1}`);
+    bumpDataRevision();
+  }, [bumpDataRevision, dataRevision]);
+
+  useEffect(() => {
+    const handleSyncCompletion = (result: import('../services/sync/syncEngine').SyncResult) => {
+      syncLog('DATABASE_CHANGED_CALLBACK', `goals=${result.changedEntities.goals}`, `categories=${result.changedEntities.categories}`, `transactions=${result.changedEntities.transactions}`, `recurring=${result.changedEntities.recurring}`);
+      if (hasDatabaseChanges(result)) {
+        notifyDatabaseChanged();
+      }
+    };
+
+    registerSyncCompletionCallback(handleSyncCompletion);
+
+    return () => {
+      unregisterSyncCompletionCallback();
+    };
+  }, [notifyDatabaseChanged]);
 
   const refreshLocalAvatar = useCallback(async () => {
     if (!user?.id) {
@@ -264,6 +286,7 @@ export function UserLocalDataProvider({ children }: { children: React.ReactNode 
     retryInit,
     dataRevision,
     bumpDataRevision,
+    notifyDatabaseChanged,
     localAvatarUri,
     refreshLocalAvatar,
     lastSnapshotUploadAt,

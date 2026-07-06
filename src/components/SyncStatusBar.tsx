@@ -4,6 +4,7 @@ import { useAppTheme } from '../hooks/useAppTheme';
 import { useSyncStore } from '../store/syncStore';
 import { useAuth } from '../context/AuthContext';
 import { runFullSync } from '../services/sync/syncEngine';
+import { SyncReason } from '../types/sync';
 
 export function SyncStatusBar() {
   const { C } = useAppTheme();
@@ -27,7 +28,7 @@ export function SyncStatusBar() {
 
   return (
     <TouchableOpacity
-      onPress={() => user && void runFullSync(user.id)}
+      onPress={() => user && void runFullSync(user.id, SyncReason.MANUAL)}
       style={{
         backgroundColor: status === 'error' ? C.dangerLight : C.primaryLight,
         paddingVertical: 8,

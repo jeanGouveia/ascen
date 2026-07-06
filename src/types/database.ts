@@ -74,6 +74,21 @@ export type DbRecurringRule = {
   deleted_at: string | null;
 };
 
-export type SyncEntity = 'category' | 'transaction' | 'recurring';
+export type DbGoal = {
+  id: string;
+  family_id: string;
+  name: string;
+  icon: string;
+  color: string;
+  target: number;
+  current: number;
+  deadline: string | null;
+  completed: boolean;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
 
-export type SyncOperation = 'upsert' | 'delete';
+export type SyncEntity = 'category' | 'transaction' | 'recurring' | 'goal';
+
+export type SyncOperation = 'upsert' | 'delete' | 'deposit';

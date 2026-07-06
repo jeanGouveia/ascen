@@ -1,13 +1,14 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { NavigationContainer, DefaultTheme, DarkTheme, Theme } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, DarkTheme, Theme, NavigationState } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import * as Linking from 'expo-linking';
 import { PreferencesProvider, usePreferences } from './src/context/PreferencesContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { SessionProvider, useSession } from './src/context/SessionContext';
+import { SyncLifecycleProvider } from './src/context/SyncLifecycleContext';
 import { UserLocalDataProvider } from './src/context/UserLocalDataContext';
 import { FamilyProvider } from './src/context/FamilyContext';
 import { AppProvider, useApp } from './src/context/AppContext';
@@ -23,12 +24,25 @@ import { SessionLockScreen } from './src/screens/SessionLockScreen';
 import { TransactionModal } from './src/components/TransactionModal';
 import { CoachMarksOverlay } from './src/components/CoachMarksOverlay';
 import { getColors, C_light } from './src/styles/theme';
+import { requestSync } from './src/services/sync/syncCoordinator';
+import { SyncReason } from './src/types/sync';
+import { syncLog } from './src/utils/syncLogger';
 import * as SplashScreen from 'expo-splash-screen';
 import { supabase } from './src/services/supabase';
+
+function getActiveRouteName(state: NavigationState | undefined): string | undefined {
+  if (!state) return undefined;
+  const route = state.routes[state.index];
+  if (route.state) {
+    return getActiveRouteName(route.state as NavigationState);
+  }
+  return route.name;
+}
 
 function ThemedNavigation({ children }: { children: React.ReactNode }) {
   const { darkMode, loaded } = usePreferences();
   const C = useMemo(() => getColors(darkMode), [darkMode]);
+  const routeNameRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     if (loaded) {
@@ -61,7 +75,23 @@ function ThemedNavigation({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return <NavigationContainer theme={navTheme}>{children}</NavigationContainer>;
+  const handleNavigationStateChange = (state: NavigationState | undefined) => {
+    const previousRoute = routeNameRef.current ?? '(none)';
+    const currentRoute = getActiveRouteName(state) ?? '(unknown)';
+    routeNameRef.current = currentRoute;
+
+    syncLog(
+      'NavigationContainer.onStateChange()',
+      `previousRoute=${previousRoute}`,
+      `currentRoute=${currentRoute}`,
+    );
+  };
+
+  return (
+    <NavigationContainer theme={navTheme} onStateChange={handleNavigationStateChange}>
+      {children}
+    </NavigationContainer>
+  );
 }
 
 // ─── Intercepta deep links de reset de senha ──────────────────────────────────
@@ -204,19 +234,21 @@ export default function App() {
             <AuthProvider>
               <SessionProvider>
                 <UserLocalDataProvider>
-                  <FamilyProvider>
-                    <AppProvider>
-                      <CategoryProvider>
-                        <RecurringProvider>
-                          <GoalsProvider>
-                            <OnboardingProvider>
-                              <AuthGate />
-                            </OnboardingProvider>
-                          </GoalsProvider>
-                        </RecurringProvider>
-                      </CategoryProvider>
-                    </AppProvider>
-                  </FamilyProvider>
+                  <SyncLifecycleProvider>
+                    <FamilyProvider>
+                      <AppProvider>
+                        <CategoryProvider>
+                          <RecurringProvider>
+                            <GoalsProvider>
+                              <OnboardingProvider>
+                                <AuthGate />
+                              </OnboardingProvider>
+                            </GoalsProvider>
+                          </RecurringProvider>
+                        </CategoryProvider>
+                      </AppProvider>
+                    </FamilyProvider>
+                  </SyncLifecycleProvider>
                 </UserLocalDataProvider>
               </SessionProvider>
             </AuthProvider>

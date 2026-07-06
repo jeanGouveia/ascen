@@ -3,7 +3,7 @@ import { bindNum, bindStr, bindStrNull, getDb } from '../../../db/localDataDb';
 import { transactionToRemote } from '../mappers';
 import type { DbTransaction } from '../../../types/database';
 
-export async function pullTransactions(familyId: string, since: string): Promise<void> {
+export async function pullTransactions(familyId: string, since: string): Promise<boolean> {
   const { data, error } = await supabase
     .from('transactions')
     .select('*')
@@ -13,13 +13,18 @@ export async function pullTransactions(familyId: string, since: string): Promise
 
   if (error) throw new Error(error.message);
 
+  let changed = false;
   const db = getDb();
   for (const row of (data ?? []) as DbTransaction[]) {
-    await upsertTransactionLocal(row as unknown as Record<string, unknown>);
+    const result = await upsertTransactionLocal(row as unknown as Record<string, unknown>);
+    if (result !== 'skipped') changed = true;
   }
+  return changed;
 }
 
-async function upsertTransactionLocal(row: Record<string, unknown>): Promise<void> {
+type UpsertResult = 'inserted' | 'updated' | 'deleted' | 'skipped';
+
+async function upsertTransactionLocal(row: Record<string, unknown>): Promise<UpsertResult> {
   const db = getDb();
   const id = String(row.id);
   const remoteUpdated = String(row.updated_at ?? '');
@@ -27,14 +32,16 @@ async function upsertTransactionLocal(row: Record<string, unknown>): Promise<voi
 
   if (deletedAt) {
     await db.runAsync('DELETE FROM transactions WHERE id = ?', [id]);
-    return;
+    return 'deleted';
   }
 
   const local = await db.getFirstAsync<{ updated_at: string }>(
     'SELECT updated_at FROM transactions WHERE id = ?',
     [id]
   );
-  if (local && local.updated_at > remoteUpdated) return;
+  if (local && local.updated_at > remoteUpdated) return 'skipped';
+
+  const isUpdate = Boolean(local);
 
   await db.runAsync(
     `INSERT INTO transactions (
@@ -70,6 +77,8 @@ async function upsertTransactionLocal(row: Record<string, unknown>): Promise<voi
       bindStrNull(row.created_at),
     ]
   );
+
+  return isUpdate ? 'updated' : 'inserted';
 }
 
 export async function pushTransaction(

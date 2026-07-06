@@ -1,10 +1,14 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { Alert } from 'react-native';
 import { useAuth } from './AuthContext';
 import { useUserLocal } from './UserLocalDataContext';
 import { Goal } from '../types';
 import * as localDb from '../db/localDataDb';
+import { scheduleSync } from '../services/sync/syncEngine';
+import { getLocalFamilyId } from '../services/family';
 import { logger } from '../utils/logger';
+import { syncLog } from '../utils/syncLogger';
 
 interface GoalsContextType {
   goals: Goal[];
@@ -31,31 +35,59 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       return;
     }
+    const before = goals.length;
     try {
       const rows = await localDb.listGoals();
-      setGoals(rows);
+      syncLog(
+          "GoalsContext.reload()",
+          `rows=${rows.length}`,
+          rows.map(r => r.name).join(", ")
+      );
+      setGoals([...rows]);
+      syncLog(
+    'GOALS_RELOAD',
+    `before=${before}`,
+    `after=${rows.length}`,
+    `ids=${rows.map(r => r.id).join(',')}`,
+    `names=${rows.map(r => r.name).join(',')}`,
+);
     } catch (e) {
       logger.error('Metas:', e instanceof Error ? e.message : e);
     } finally {
       setLoading(false);
     }
-  }, [user, localDataReady]);
+  }, [user, localDataReady, goals.length]);
 
   useEffect(() => {
+    syncLog('GOALS_CONTEXT', `dataRevision=${dataRevision}`, 'reload()');
     void reload();
   }, [reload, dataRevision]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      void reload();
+    }, [reload])
+  );
 
   const addGoal = useCallback(
     async (data: Omit<Goal, 'id'>) => {
       if (!localDataReady) return;
       try {
-        await localDb.insertGoal(data);
+        const id = await localDb.insertGoal(data);
+        const familyId = await getLocalFamilyId();
+        syncLog(
+          'Goal criada',
+          `id=${id}`,
+          `timestamp=${Date.now()}`,
+          `familyId=${familyId ?? 'null'}`,
+        );
+        if (user) scheduleSync(user.id);
         await reload();
       } catch (e) {
         Alert.alert('Erro', e instanceof Error ? e.message : 'Falha ao criar meta');
       }
     },
-    [localDataReady, reload]
+    [localDataReady, reload, user]
   );
 
   const updateGoal = useCallback(
@@ -63,12 +95,20 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
       if (!localDataReady) return;
       try {
         await localDb.updateGoal(id, data);
+        const familyId = await getLocalFamilyId();
+        syncLog(
+          'Goal editada',
+          `id=${id}`,
+          `timestamp=${Date.now()}`,
+          `familyId=${familyId ?? 'null'}`,
+        );
+        if (user) scheduleSync(user.id);
         await reload();
       } catch (e) {
         Alert.alert('Erro', e instanceof Error ? e.message : 'Falha ao atualizar');
       }
     },
-    [localDataReady, reload]
+    [localDataReady, reload, user]
   );
 
   const deleteGoal = useCallback(
@@ -76,23 +116,42 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
       if (!localDataReady) return;
       try {
         await localDb.deleteGoal(id);
+        const familyId = await getLocalFamilyId();
+        syncLog(
+          'Goal removida',
+          `id=${id}`,
+          `timestamp=${Date.now()}`,
+          `familyId=${familyId ?? 'null'}`,
+        );
+        if (user) scheduleSync(user.id);
         setGoals(prev => prev.filter(g => g.id !== id));
       } catch (e) {
         Alert.alert('Erro', e instanceof Error ? e.message : 'Falha ao excluir');
       }
     },
-    [localDataReady]
+    [localDataReady, user]
   );
 
   const depositToGoal = useCallback(
     async (id: string, amount: number) => {
-      const goal = goals.find(g => g.id === id);
-      if (!goal) return;
-      const newCurrent = Math.min(goal.current + amount, goal.target);
-      const completed = newCurrent >= goal.target;
-      await updateGoal(id, { current: newCurrent, completed });
+      if (!localDataReady) return;
+      try {
+        await localDb.depositGoalLocal(id, amount);
+        const familyId = await getLocalFamilyId();
+        syncLog(
+          'Goal depositada',
+          `id=${id}`,
+          `amount=${amount}`,
+          `timestamp=${Date.now()}`,
+          `familyId=${familyId ?? 'null'}`,
+        );
+        if (user) scheduleSync(user.id);
+        await reload();
+      } catch (e) {
+        Alert.alert('Erro', e instanceof Error ? e.message : 'Falha ao depositar na meta');
+      }
     },
-    [goals, updateGoal]
+    [localDataReady, reload, user]
   );
 
   return (

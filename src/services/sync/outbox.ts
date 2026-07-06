@@ -1,5 +1,6 @@
 import { getDb } from '../../db/dbInstance';
 import type { SyncEntity, SyncOperation } from '../../types/database';
+import { syncLog, syncLogJson } from '../../utils/syncLogger';
 
 export type OutboxRow = {
   id: number;
@@ -18,12 +19,20 @@ export async function enqueueSync(
   operation: SyncOperation,
   payload: Record<string, unknown>
 ): Promise<void> {
+  syncLog(
+    '[SYNC] enqueueSync called',
+    `entity=${entity}`,
+    `operation=${operation}`,
+    `id=${entityId}`,
+    syncLogJson('payload', payload),
+  );
   const db = getDb();
   await db.runAsync(
     `INSERT INTO sync_outbox (entity, entity_id, operation, payload, attempts, created_at)
      VALUES (?, ?, ?, ?, 0, datetime('now'))`,
     [entity, entityId, operation, JSON.stringify(payload)]
   );
+  syncLog('[SYNC] enqueueSync completed', `entity=${entity}`, `id=${entityId}`, `operation=${operation}`);
 }
 
 export async function listPendingOutbox(limit = 50): Promise<OutboxRow[]> {
@@ -43,7 +52,24 @@ export async function countPendingOutbox(): Promise<number> {
 
 export async function removeOutboxItem(id: number): Promise<void> {
   const db = getDb();
+  const row = await db.getFirstAsync<OutboxRow>(
+    `SELECT id, entity, entity_id as entity_id, operation, payload, attempts, last_error, created_at
+     FROM sync_outbox WHERE id = ?`,
+    [id]
+  );
   await db.runAsync('DELETE FROM sync_outbox WHERE id = ?', [id]);
+  if (row) {
+    syncLog(
+      'removeOutboxItem()',
+      `removedOutboxId=${id}`,
+      `entity=${row.entity}`,
+      `id=${row.entity_id}`,
+      `operation=${row.operation}`,
+      `attempts=${row.attempts}`,
+    );
+  } else {
+    syncLog('removeOutboxItem()', `removedOutboxId=${id}`, 'note=noRowFoundBeforeDelete');
+  }
 }
 
 export async function markOutboxFailed(id: number, error: string, attempts: number): Promise<void> {

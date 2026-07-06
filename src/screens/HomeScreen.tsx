@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { formatBRL, currentMonthName } from '../utils/helpers';
@@ -7,6 +7,9 @@ import { useAppTheme } from '../hooks/useAppTheme';
 import { EmptyState, TxCard, FAB } from '../components/Shared';
 import { SyncStatusBar } from '../components/SyncStatusBar';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
+import { requestSync } from '../services/sync/syncCoordinator';
+import { SyncReason } from '../types/sync';
 import {
   filterTransactionsByMonth,
   getCurrentYearMonth,
@@ -17,6 +20,8 @@ export function HomeScreen() {
   const { C, s } = useAppTheme();
   const navigation = useNavigation<any>();
   const { transactions, openTxModal } = useApp();
+  const { user } = useAuth();
+  const [refreshing, setRefreshing] = useState(false);
   const { year, month } = getCurrentYearMonth();
 
   const { income, expense, balance } = useMemo(
@@ -29,12 +34,28 @@ export function HomeScreen() {
     return [...monthTx].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
   }, [transactions, year, month]);
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await requestSync(user?.id ?? null, SyncReason.MANUAL);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top']}>
       <SyncStatusBar />
       <ScrollView
         contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={C.primary}
+          />
+        }
       >
         <Text style={{ fontSize: 12, color: C.textMuted, letterSpacing: 2, fontWeight: '700', marginBottom: 4 }}>
           ASCEN

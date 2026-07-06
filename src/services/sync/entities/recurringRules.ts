@@ -3,7 +3,7 @@ import { bindNum, bindStr, bindStrNull, bindActive01, getDb } from '../../../db/
 import { recurringToRemote } from '../mappers';
 import type { DbRecurringRule } from '../../../types/database';
 
-export async function pullRecurringRules(familyId: string, since: string): Promise<void> {
+export async function pullRecurringRules(familyId: string, since: string): Promise<boolean> {
   const { data, error } = await supabase
     .from('recurring_rules')
     .select('*')
@@ -13,13 +13,18 @@ export async function pullRecurringRules(familyId: string, since: string): Promi
 
   if (error) throw new Error(error.message);
 
+  let changed = false;
   const db = getDb();
   for (const row of (data ?? []) as DbRecurringRule[]) {
-    await upsertRecurringRuleLocal(row as unknown as Record<string, unknown>);
+    const result = await upsertRecurringRuleLocal(row as unknown as Record<string, unknown>);
+    if (result !== 'skipped') changed = true;
   }
+  return changed;
 }
 
-async function upsertRecurringRuleLocal(row: Record<string, unknown>): Promise<void> {
+type UpsertResult = 'inserted' | 'updated' | 'deleted' | 'skipped';
+
+async function upsertRecurringRuleLocal(row: Record<string, unknown>): Promise<UpsertResult> {
   const db = getDb();
   const id = String(row.id);
   const remoteUpdated = String(row.updated_at ?? '');
@@ -27,14 +32,16 @@ async function upsertRecurringRuleLocal(row: Record<string, unknown>): Promise<v
 
   if (deletedAt) {
     await db.runAsync('DELETE FROM recurring_rules WHERE id = ?', [id]);
-    return;
+    return 'deleted';
   }
 
   const local = await db.getFirstAsync<{ updated_at: string }>(
     'SELECT updated_at FROM recurring_rules WHERE id = ?',
     [id]
   );
-  if (local && local.updated_at > remoteUpdated) return;
+  if (local && local.updated_at > remoteUpdated) return 'skipped';
+
+  const isUpdate = Boolean(local);
 
   await db.runAsync(
     `INSERT INTO recurring_rules (
@@ -66,6 +73,8 @@ async function upsertRecurringRuleLocal(row: Record<string, unknown>): Promise<v
       remoteUpdated,
     ]
   );
+
+  return isUpdate ? 'updated' : 'inserted';
 }
 
 export async function pushRecurringRule(payload: Record<string, unknown>, familyId: string): Promise<void> {

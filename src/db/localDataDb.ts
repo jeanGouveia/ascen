@@ -139,6 +139,8 @@ async function migrateSchema(db: SQLite.SQLiteDatabase): Promise<void> {
   await addCol('recurring_rules', 'family_id', 'TEXT');
   await addCol('recurring_rules', 'deleted_at', 'TEXT');
   await addCol('recurring_rules', 'starts_on', "TEXT DEFAULT (date('now'))");
+  await addCol('goals', 'family_id', 'TEXT');
+  await addCol('goals', 'deleted_at', 'TEXT');
 
   // Garantir goals em DBs antigos (CREATE IF NOT EXISTS na init não roda se DB já existia)
   await db.execAsync(`
@@ -213,15 +215,10 @@ function rowToTransaction(row: Record<string, unknown>): Transaction {
   };
 }
 
-async function getRowForSync(table: 'transactions' | 'categories' | 'recurring_rules', id: string) {
-  const db = getDb();
-  return db.getFirstAsync<Record<string, unknown>>(`SELECT * FROM ${table} WHERE id = ?`, [id]);
-}
-
 export async function listTransactions(): Promise<Transaction[]> {
   const db = getDb();
   const rows = await db.getAllAsync<Record<string, unknown>>(
-    'SELECT * FROM transactions ORDER BY date DESC, created_at DESC'
+    'SELECT * FROM transactions WHERE deleted_at IS NULL ORDER BY date DESC, created_at DESC'
   );
   return rows.map(rowToTransaction);
 }
@@ -230,40 +227,48 @@ export async function insertTransaction(data: Omit<Transaction, 'id'>): Promise<
   const id = Crypto.randomUUID();
   const updated = nowIso();
   const db = getDb();
-  await db.runAsync(
-    `INSERT INTO transactions (
-      id, type, amount, description, category, category_icon, category_color, category_id,
-      date, payment_method, is_installment, installment_info, is_fixed, is_paid, notes, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      id,
-      data.type,
-      data.amount,
-      data.description,
-      data.category,
-      data.categoryIcon,
-      data.categoryColor,
-      data.categoryId ?? null,
-      data.date,
-      data.paymentMethod,
-      data.isInstallment ? 1 : 0,
-      data.installmentInfo ?? null,
-      data.isFixed ? 1 : 0,
-      data.isPaid !== false ? 1 : 0,
-      data.notes ?? null,
-      updated,
-    ]
-  );
-  const row = await getRowForSync('transactions', id);
-  if (row) await enqueueSync('transaction', id, 'upsert', row);
+  
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      `INSERT INTO transactions (
+        id, type, amount, description, category, category_icon, category_color, category_id,
+        date, payment_method, is_installment, installment_info, is_fixed, is_paid, notes, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        data.type,
+        data.amount,
+        data.description,
+        data.category,
+        data.categoryIcon,
+        data.categoryColor,
+        data.categoryId ?? null,
+        data.date,
+        data.paymentMethod,
+        data.isInstallment ? 1 : 0,
+        data.installmentInfo ?? null,
+        data.isFixed ? 1 : 0,
+        data.isPaid !== false ? 1 : 0,
+        data.notes ?? null,
+        updated,
+      ]
+    );
+    const row = await db.getFirstAsync<Record<string, unknown>>(`SELECT * FROM transactions WHERE id = ?`, [id]);
+    if (row) await enqueueSync('transaction', id, 'upsert', row);
+  });
+  
   return id;
 }
 
 export async function deleteTransaction(id: string): Promise<void> {
-  const row = await getRowForSync('transactions', id);
   const db = getDb();
-  await db.runAsync('DELETE FROM transactions WHERE id = ?', [id]);
-  if (row) await enqueueSync('transaction', id, 'delete', row);
+  const now = nowIso();
+  
+  await db.withTransactionAsync(async () => {
+    const row = await db.getFirstAsync<Record<string, unknown>>(`SELECT * FROM transactions WHERE id = ?`, [id]);
+    await db.runAsync('UPDATE transactions SET deleted_at = ?, updated_at = ? WHERE id = ?', [now, now, id]);
+    if (row) await enqueueSync('transaction', id, 'delete', row);
+  });
 }
 
 export async function updateTransaction(
@@ -294,9 +299,12 @@ export async function updateTransaction(
   parts.push('updated_at = ?');
   vals.push(nowIso());
   vals.push(id);
-  await db.runAsync(`UPDATE transactions SET ${parts.join(', ')} WHERE id = ?`, vals);
-  const row = await getRowForSync('transactions', id);
-  if (row) await enqueueSync('transaction', id, 'upsert', row);
+  
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(`UPDATE transactions SET ${parts.join(', ')} WHERE id = ?`, vals);
+    const row = await db.getFirstAsync<Record<string, unknown>>(`SELECT * FROM transactions WHERE id = ?`, [id]);
+    if (row) await enqueueSync('transaction', id, 'upsert', row);
+  });
 }
 
 export async function deleteUnpaidRecurringTxsForRule(ruleId: string): Promise<void> {
@@ -314,7 +322,7 @@ export async function deleteUnpaidRecurringTxsForRule(ruleId: string): Promise<v
 export async function listCustomCategories(): Promise<Category[]> {
   const db = getDb();
   const rows = await db.getAllAsync<Record<string, unknown>>(
-    'SELECT * FROM categories ORDER BY created_at ASC'
+    'SELECT * FROM categories WHERE deleted_at IS NULL ORDER BY created_at ASC'
   );
   return rows.map(r => ({
     id: String(r.id),
@@ -330,12 +338,16 @@ export async function insertCategory(data: Omit<Category, 'id' | 'isDefault'>): 
   const id = Crypto.randomUUID();
   const updated = nowIso();
   const db = getDb();
-  await db.runAsync(
-    `INSERT INTO categories (id, name, icon, color, type, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
-    [id, data.name, data.icon, data.color, data.type, updated]
-  );
-  const row = await getRowForSync('categories', id);
-  if (row) await enqueueSync('category', id, 'upsert', row);
+  
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      `INSERT INTO categories (id, name, icon, color, type, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+      [id, data.name, data.icon, data.color, data.type, updated]
+    );
+    const row = await db.getFirstAsync<Record<string, unknown>>(`SELECT * FROM categories WHERE id = ?`, [id]);
+    if (row) await enqueueSync('category', id, 'upsert', row);
+  });
+  
   return id;
 }
 
@@ -365,16 +377,23 @@ export async function updateCategory(
   parts.push("updated_at = ?");
   vals.push(nowIso());
   vals.push(id);
-  await db.runAsync(`UPDATE categories SET ${parts.join(', ')} WHERE id = ?`, vals);
-  const row = await getRowForSync('categories', id);
-  if (row) await enqueueSync('category', id, 'upsert', row);
+  
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(`UPDATE categories SET ${parts.join(', ')} WHERE id = ?`, vals);
+    const row = await db.getFirstAsync<Record<string, unknown>>(`SELECT * FROM categories WHERE id = ?`, [id]);
+    if (row) await enqueueSync('category', id, 'upsert', row);
+  });
 }
 
 export async function deleteCategory(id: string): Promise<void> {
-  const row = await getRowForSync('categories', id);
   const db = getDb();
-  await db.runAsync('DELETE FROM categories WHERE id = ?', [id]);
-  if (row) await enqueueSync('category', id, 'delete', row);
+  const now = nowIso();
+  
+  await db.withTransactionAsync(async () => {
+    const row = await db.getFirstAsync<Record<string, unknown>>(`SELECT * FROM categories WHERE id = ?`, [id]);
+    await db.runAsync('UPDATE categories SET deleted_at = ?, updated_at = ? WHERE id = ?', [now, now, id]);
+    if (row) await enqueueSync('category', id, 'delete', row);
+  });
 }
 
 export async function listRecurringRows(): Promise<LocalRecurringRow[]> {
@@ -400,29 +419,33 @@ export async function insertRecurringRow(input: {
   const id = Crypto.randomUUID();
   const now = nowIso();
   const db = getDb();
-  await db.runAsync(
-    `INSERT INTO recurring_rules (
-      id, type, description, amount, category, category_icon, category_color,
-      payment_method, day_of_month, frequency, active, last_confirmed, starts_on, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
-    [
-      id,
-      input.type,
-      input.description,
-      input.amount,
-      input.category,
-      input.categoryIcon,
-      input.categoryColor,
-      input.paymentMethod,
-      input.dayOfMonth,
-      input.frequency,
-      input.active ? 1 : 0,
-      input.startsOn,
-      now,
-    ]
-  );
-  const row = await getRowForSync('recurring_rules', id);
-  if (row) await enqueueSync('recurring', id, 'upsert', row);
+  
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      `INSERT INTO recurring_rules (
+        id, type, description, amount, category, category_icon, category_color,
+        payment_method, day_of_month, frequency, active, last_confirmed, starts_on, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
+      [
+        id,
+        input.type,
+        input.description,
+        input.amount,
+        input.category,
+        input.categoryIcon,
+        input.categoryColor,
+        input.paymentMethod,
+        input.dayOfMonth,
+        input.frequency,
+        input.active ? 1 : 0,
+        input.startsOn,
+        now,
+      ]
+    );
+    const row = await db.getFirstAsync<Record<string, unknown>>(`SELECT * FROM recurring_rules WHERE id = ?`, [id]);
+    if (row) await enqueueSync('recurring', id, 'upsert', row);
+  });
+  
   return id;
 }
 
@@ -497,9 +520,12 @@ export async function updateRecurringRow(
   parts.push('updated_at = ?');
   vals.push(nowIso());
   vals.push(id);
-  await db.runAsync(`UPDATE recurring_rules SET ${parts.join(', ')} WHERE id = ?`, vals);
-  const row = await getRowForSync('recurring_rules', id);
-  if (row) await enqueueSync('recurring', id, 'upsert', row);
+  
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(`UPDATE recurring_rules SET ${parts.join(', ')} WHERE id = ?`, vals);
+    const row = await db.getFirstAsync<Record<string, unknown>>(`SELECT * FROM recurring_rules WHERE id = ?`, [id]);
+    if (row) await enqueueSync('recurring', id, 'upsert', row);
+  });
 }
 
 function rowToGoal(row: Record<string, unknown>): Goal {
@@ -518,7 +544,7 @@ function rowToGoal(row: Record<string, unknown>): Goal {
 export async function listGoals(): Promise<Goal[]> {
   const db = getDb();
   const rows = await db.getAllAsync<Record<string, unknown>>(
-    'SELECT * FROM goals ORDER BY completed ASC, created_at ASC'
+    'SELECT * FROM goals WHERE deleted_at IS NULL ORDER BY completed ASC, created_at ASC'
   );
   return rows.map(rowToGoal);
 }
@@ -527,21 +553,27 @@ export async function insertGoal(data: Omit<Goal, 'id'>): Promise<string> {
   const id = Crypto.randomUUID();
   const updated = nowIso();
   const db = getDb();
-  await db.runAsync(
-    `INSERT INTO goals (id, name, icon, color, target, current, deadline, completed, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      id,
-      data.name,
-      data.icon,
-      data.color,
-      data.target,
-      data.current,
-      data.deadline ?? null,
-      data.completed ? 1 : 0,
-      updated,
-    ]
-  );
+  
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      `INSERT INTO goals (id, name, icon, color, target, current, deadline, completed, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        data.name,
+        data.icon,
+        data.color,
+        data.target,
+        data.current,
+        data.deadline ?? null,
+        data.completed ? 1 : 0,
+        updated,
+      ]
+    );
+    const row = await db.getFirstAsync<Record<string, unknown>>(`SELECT * FROM goals WHERE id = ?`, [id]);
+    if (row) await enqueueSync('goal', id, 'upsert', row);
+  });
+  
   return id;
 }
 
@@ -581,19 +613,47 @@ export async function updateGoal(id: string, patch: Partial<Omit<Goal, 'id'>>): 
   parts.push('updated_at = ?');
   vals.push(nowIso());
   vals.push(id);
-  await db.runAsync(`UPDATE goals SET ${parts.join(', ')} WHERE id = ?`, vals);
+  
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(`UPDATE goals SET ${parts.join(', ')} WHERE id = ?`, vals);
+    const row = await db.getFirstAsync<Record<string, unknown>>(`SELECT * FROM goals WHERE id = ?`, [id]);
+    if (row) await enqueueSync('goal', id, 'upsert', row);
+  });
 }
 
 export async function deleteGoal(id: string): Promise<void> {
   const db = getDb();
-  await db.runAsync('DELETE FROM goals WHERE id = ?', [id]);
+  const now = nowIso();
+  
+  await db.withTransactionAsync(async () => {
+    const row = await db.getFirstAsync<Record<string, unknown>>(`SELECT * FROM goals WHERE id = ?`, [id]);
+    await db.runAsync('UPDATE goals SET deleted_at = ?, updated_at = ? WHERE id = ?', [now, now, id]);
+    if (row) await enqueueSync('goal', id, 'delete', row);
+  });
+}
+
+export async function depositGoalLocal(id: string, amount: number): Promise<void> {
+  const db = getDb();
+  const now = nowIso();
+  
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      'UPDATE goals SET current = current + ?, completed = (current + ?) >= target, updated_at = ? WHERE id = ?',
+      [amount, amount, now, id]
+    );
+    const row = await db.getFirstAsync<Record<string, unknown>>(`SELECT * FROM goals WHERE id = ?`, [id]);
+    if (row) await enqueueSync('goal', id, 'deposit', { amount });
+  });
 }
 
 export async function deleteRecurringRow(id: string): Promise<void> {
-  const row = await getRowForSync('recurring_rules', id);
   const db = getDb();
-  await db.runAsync('DELETE FROM recurring_rules WHERE id = ?', [id]);
-  if (row) await enqueueSync('recurring', id, 'delete', row);
+  
+  await db.withTransactionAsync(async () => {
+    const row = await db.getFirstAsync<Record<string, unknown>>(`SELECT * FROM recurring_rules WHERE id = ?`, [id]);
+    await db.runAsync('DELETE FROM recurring_rules WHERE id = ?', [id]);
+    if (row) await enqueueSync('recurring', id, 'delete', row);
+  });
 }
 
 /** Export bruto para snapshot (sem avatar). */

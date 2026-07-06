@@ -10,6 +10,7 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatBRL, formatDate, todayStr } from '../utils/helpers';
@@ -19,6 +20,9 @@ import { Card, ProgressBar, EmptyState } from '../components/Shared';
 import { DateField } from '../components/DateField';
 import { Goal } from '../types';
 import { useGoals } from '../context/GoalsContext';
+import { useAuth } from '../context/AuthContext';
+import { requestSync } from '../services/sync/syncCoordinator';
+import { SyncReason } from '../types/sync';
 
 const GOAL_ICONS = ['🎯', '✈️', '🏠', '🚗', '💍', '🎓', '💻', '📱', '🏖️', '🐾', '🎁', '⛵'];
 const GOAL_COLORS = [C_light.primary, '#F97316', '#22C55E', '#EC4899', '#8B5CF6', '#06B6D4', '#F59E0B'];
@@ -42,6 +46,8 @@ const emptyForm = (): GoalForm => ({
 export function GoalsScreen() {
   const { C, s } = useAppTheme();
   const { goals, loading, addGoal, updateGoal, deleteGoal, depositToGoal } = useGoals();
+  const { user } = useAuth();
+  const [refreshing, setRefreshing] = useState(false);
 
   const [depositTarget, setDepositTarget] = useState<Goal | null>(null);
   const [depositAmount, setDepositAmount] = useState('');
@@ -121,9 +127,28 @@ export function GoalsScreen() {
     if (completed) setTimeout(() => Alert.alert('🎉 Parabéns!', `Você atingiu a meta "${name}"!`), 300);
   };
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await requestSync(user?.id ?? null, SyncReason.MANUAL);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top']}>
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={C.primary}
+          />
+        }
+      >
         <Text style={[s.pageTitle, { marginBottom: 4 }]}>Minhas Metas</Text>
         <Text style={s.pageSubtitle}>Objetivos de poupança</Text>
 

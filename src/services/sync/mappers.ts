@@ -1,5 +1,5 @@
-import type { Category, Transaction, TxType } from '../../types';
-import type { DbCategory, DbRecurringRule, DbTransaction } from '../../types/database';
+import type { Category, Transaction, TxType, Goal } from '../../types';
+import type { DbCategory, DbGoal, DbRecurringRule, DbTransaction } from '../../types/database';
 import type { LocalRecurringRow } from '../../db/localDataDb';
 
 export function transactionToRemote(
@@ -100,5 +100,37 @@ export function remoteToCategory(row: DbCategory): Category {
     color: row.color,
     type: row.type,
     isDefault: false,
+  };
+}
+
+export function goalToRemote(
+  row: Record<string, unknown>,
+  familyId: string
+): Record<string, unknown> {
+  return {
+    id: row.id,
+    family_id: familyId,
+    name: row.name,
+    icon: row.icon,
+    color: row.color,
+    target: Number(row.target),
+    current: Number(row.current),
+    deadline: row.deadline ?? null,
+    completed: Boolean(row.completed),
+    updated_at: row.updated_at ?? new Date().toISOString(),
+    deleted_at: row.deleted_at ?? null,
+  };
+}
+
+export function remoteToGoal(row: DbGoal): Goal {
+  return {
+    id: row.id,
+    name: row.name,
+    icon: row.icon,
+    color: row.color,
+    target: Number(row.target),
+    current: Number(row.current),
+    deadline: row.deadline ?? undefined,
+    completed: row.completed,
   };
 }

@@ -3,7 +3,7 @@ import { bindStr, bindStrNull, getDb } from '../../../db/localDataDb';
 import { categoryToRemote } from '../mappers';
 import type { DbCategory } from '../../../types/database';
 
-export async function pullCategories(familyId: string, since: string): Promise<void> {
+export async function pullCategories(familyId: string, since: string): Promise<boolean> {
   const { data, error } = await supabase
     .from('categories')
     .select('*')
@@ -13,13 +13,18 @@ export async function pullCategories(familyId: string, since: string): Promise<v
 
   if (error) throw new Error(error.message);
 
+  let changed = false;
   const db = getDb();
   for (const row of (data ?? []) as DbCategory[]) {
-    await upsertCategoryLocal(row as unknown as Record<string, unknown>);
+    const result = await upsertCategoryLocal(row as unknown as Record<string, unknown>);
+    if (result !== 'skipped') changed = true;
   }
+  return changed;
 }
 
-async function upsertCategoryLocal(row: Record<string, unknown>): Promise<void> {
+type UpsertResult = 'inserted' | 'updated' | 'deleted' | 'skipped';
+
+async function upsertCategoryLocal(row: Record<string, unknown>): Promise<UpsertResult> {
   const db = getDb();
   const id = String(row.id);
   const remoteUpdated = String(row.updated_at ?? '');
@@ -27,14 +32,16 @@ async function upsertCategoryLocal(row: Record<string, unknown>): Promise<void> 
 
   if (deletedAt) {
     await db.runAsync('DELETE FROM categories WHERE id = ?', [id]);
-    return;
+    return 'deleted';
   }
 
   const local = await db.getFirstAsync<{ updated_at: string }>(
     'SELECT updated_at FROM categories WHERE id = ?',
     [id]
   );
-  if (local && local.updated_at > remoteUpdated) return;
+  if (local && local.updated_at > remoteUpdated) return 'skipped';
+
+  const isUpdate = Boolean(local);
 
   await db.runAsync(
     `INSERT INTO categories (id, name, icon, color, type, family_id, updated_at, deleted_at, created_at)
@@ -53,6 +60,8 @@ async function upsertCategoryLocal(row: Record<string, unknown>): Promise<void> 
       bindStrNull(row.created_at),
     ]
   );
+
+  return isUpdate ? 'updated' : 'inserted';
 }
 
 export async function pushCategory(payload: Record<string, unknown>, familyId: string): Promise<void> {

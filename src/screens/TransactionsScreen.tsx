@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -7,6 +7,9 @@ import { formatBRL, formatDate, currentMonthName } from '../utils/helpers';
 import { Card, EmptyState, TxCard, FAB } from '../components/Shared';
 import { useApp } from '../context/AppContext';
 import { useRecurring } from '../context/RecurringContext';
+import { useAuth } from '../context/AuthContext';
+import { requestSync } from '../services/sync/syncCoordinator';
+import { SyncReason } from '../types/sync';
 import { isRuleActiveInCurrentMonth } from '../utils/recurringDates';
 import { Transaction } from '../types';
 
@@ -15,7 +18,9 @@ export function TransactionsScreen() {
   const { C, s } = useAppTheme();
   const { transactions } = useApp();
   const { rules } = useRecurring();
+  const { user } = useAuth();
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all');
+  const [refreshing, setRefreshing] = useState(false);
 
   const recurringThisMonth = rules.filter(r => r.active && isRuleActiveInCurrentMonth(r));
   const recurringPending = recurringThisMonth.filter(r => !r.confirmedThisMonth);
@@ -47,9 +52,28 @@ export function TransactionsScreen() {
   const totalIncome  = filtered.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
   const totalExpense = filtered.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await requestSync(user?.id ?? null, SyncReason.MANUAL);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top']}>
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={C.primary}
+          />
+        }
+      >
         <Text style={[s.pageTitle, { marginBottom: 4 }]}>Lançamentos</Text>
         <Text style={s.pageSubtitle}>{currentMonthName()} de 2026</Text>
 
