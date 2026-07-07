@@ -10,9 +10,11 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../context/AuthContext';
 import { useUserLocal } from '../context/UserLocalDataContext';
+import { useSession } from '../context/SessionContext';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { Card } from '../components/Shared';
 import { saveAvatarFromPickerUri, removeLocalAvatar } from '../services/localAvatar';
@@ -26,6 +28,8 @@ export function EditProfileScreen() {
   const { user, updateProfile } = useAuth();
   const { localAvatarUri, refreshLocalAvatar } = useUserLocal();
   const { C, s } = useAppTheme();
+  const { touch } = useSession();
+  const navigation = useNavigation<any>();
   const meta = user?.user_metadata as Record<string, string | undefined> | undefined;
   const initialName = (meta?.full_name as string) || '';
   const legacyRemote = isLegacyRemoteAvatar(meta?.avatar_url);
@@ -33,6 +37,13 @@ export function EditProfileScreen() {
   const [name, setName] = useState(initialName);
   const [localPhotoUri, setLocalPhotoUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Reset timer when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      touch();
+    }, [touch])
+  );
 
   const displayUri = localPhotoUri || localAvatarUri || (legacyRemote ? meta?.avatar_url : undefined);
 
@@ -131,7 +142,10 @@ export function EditProfileScreen() {
           <TextInput
             style={s.textInput}
             value={name}
-            onChangeText={setName}
+            onChangeText={(text) => {
+              setName(text);
+              touch();
+            }}
             placeholder="Seu nome"
             placeholderTextColor={C.textMuted}
             autoCapitalize="words"

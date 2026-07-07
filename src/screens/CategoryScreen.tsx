@@ -12,9 +12,11 @@ import {
   FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { Card } from '../components/Shared';
 import { useCategories } from '../context/CategoryContext';
+import { useSession } from '../context/SessionContext';
 import { Category } from '../types';
 
 // ─── Paleta de cores disponíveis ───────────────────────────────────────────
@@ -52,12 +54,30 @@ const DEFAULT_FORM: CategoryFormState = {
 export function CategoryScreen() {
   const { C, R, s } = useAppTheme();
   const { categories, addCategory, updateCategory, deleteCategory } = useCategories();
+  const { touch, setCriticalFlow } = useSession();
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<CategoryFormState>(DEFAULT_FORM);
   const [filter, setFilter] = useState<TxType | 'all'>('all');
   const [emojiPickerVisible, setEmojiPickerVisible] = useState(false);
+
+  // Reset timer when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      touch();
+    }, [touch])
+  );
+
+  // Critical flow: inhibit lock when modal is open
+  React.useEffect(() => {
+    if (modalVisible) {
+      setCriticalFlow(true);
+      touch();
+    } else {
+      setCriticalFlow(false);
+    }
+  }, [modalVisible, setCriticalFlow, touch]);
 
   const openCreate = () => {
     setEditingId(null);
@@ -259,7 +279,10 @@ export function CategoryScreen() {
                   placeholder="Ex: Pets, Streaming, Academia..."
                   placeholderTextColor={C.textMuted}
                   value={form.name}
-                  onChangeText={v => setForm(p => ({ ...p, name: v }))}
+                  onChangeText={(v) => {
+                    setForm(p => ({ ...p, name: v }));
+                    touch();
+                  }}
                   maxLength={30}
                 />
               </View>

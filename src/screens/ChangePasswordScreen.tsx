@@ -1,16 +1,26 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
+import { useSession } from '../context/SessionContext';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { validatePassword, PASSWORD_MIN_LENGTH } from '../utils/passwordPolicy';
 
 export function ChangePasswordScreen() {
   const { canChangePassword, updatePassword } = useAuth();
   const { C, s } = useAppTheme();
+  const { touch } = useSession();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Reset timer when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      touch();
+    }, [touch])
+  );
 
   if (!canChangePassword) {
     return (
@@ -58,7 +68,10 @@ export function ChangePasswordScreen() {
           <TextInput
             style={s.textInput}
             value={password}
-            onChangeText={setPassword}
+            onChangeText={(text) => {
+              setPassword(text);
+              touch();
+            }}
             placeholder={`Mínimo ${PASSWORD_MIN_LENGTH} caracteres`}
             placeholderTextColor={C.textMuted}
             secureTextEntry
@@ -73,7 +86,10 @@ export function ChangePasswordScreen() {
           <TextInput
             style={s.textInput}
             value={confirm}
-            onChangeText={setConfirm}
+            onChangeText={(text) => {
+              setConfirm(text);
+              touch();
+            }}
             placeholder="Repita a nova senha"
             placeholderTextColor={C.textMuted}
             secureTextEntry

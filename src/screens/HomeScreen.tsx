@@ -1,13 +1,14 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { formatBRL, currentMonthName } from '../utils/helpers';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { EmptyState, TxCard, FAB } from '../components/Shared';
 import { SyncStatusBar } from '../components/SyncStatusBar';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import { useSession } from '../context/SessionContext';
 import { requestSync } from '../services/sync/syncCoordinator';
 import { SyncReason } from '../types/sync';
 import {
@@ -21,8 +22,16 @@ export function HomeScreen() {
   const navigation = useNavigation<any>();
   const { transactions, openTxModal } = useApp();
   const { user } = useAuth();
+  const { touch } = useSession();
   const [refreshing, setRefreshing] = useState(false);
   const { year, month } = getCurrentYearMonth();
+
+  // Reset timer when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      touch();
+    }, [touch])
+  );
 
   const { income, expense, balance } = useMemo(
     () => getMonthSummary(transactions, year, month),

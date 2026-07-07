@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { formatBRL, formatDate, todayStr } from '../utils/helpers';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { C_light } from '../styles/theme';
@@ -21,6 +22,7 @@ import { DateField } from '../components/DateField';
 import { Goal } from '../types';
 import { useGoals } from '../context/GoalsContext';
 import { useAuth } from '../context/AuthContext';
+import { useSession } from '../context/SessionContext';
 import { requestSync } from '../services/sync/syncCoordinator';
 import { SyncReason } from '../types/sync';
 
@@ -47,6 +49,7 @@ export function GoalsScreen() {
   const { C, s } = useAppTheme();
   const { goals, loading, addGoal, updateGoal, deleteGoal, depositToGoal } = useGoals();
   const { user } = useAuth();
+  const { touch, setCriticalFlow, setSubmitting } = useSession();
   const [refreshing, setRefreshing] = useState(false);
 
   const [depositTarget, setDepositTarget] = useState<Goal | null>(null);
@@ -54,6 +57,43 @@ export function GoalsScreen() {
   const [formVisible, setFormVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<GoalForm>(emptyForm());
+  const [saving, setSaving] = useState(false);
+
+  // Critical flow: inhibit lock when form modal is open
+  useEffect(() => {
+    if (formVisible) {
+      setCriticalFlow(true);
+      touch();
+    } else {
+      setCriticalFlow(false);
+    }
+  }, [formVisible, setCriticalFlow, touch]);
+
+  // Critical flow: inhibit lock when deposit modal is open
+  useEffect(() => {
+    if (depositTarget) {
+      setCriticalFlow(true);
+      touch();
+    } else {
+      setCriticalFlow(false);
+    }
+  }, [depositTarget, setCriticalFlow, touch]);
+
+  // Submitting flag: inhibit lock when saving
+  useEffect(() => {
+    if (saving) {
+      setSubmitting(true);
+    } else {
+      setSubmitting(false);
+    }
+  }, [saving, setSubmitting]);
+
+  // Reset timer when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      touch();
+    }, [touch])
+  );
 
   const openCreate = () => {
     setEditingId(null);
@@ -83,21 +123,26 @@ export function GoalsScreen() {
       Alert.alert('Valor inválido', 'Informe um valor objetivo maior que zero.');
       return;
     }
-    const payload = {
-      name: form.name.trim(),
-      icon: form.icon,
-      color: form.color,
-      target: targetNum,
-      current: editingId ? goals.find(g => g.id === editingId)?.current ?? 0 : 0,
-      deadline: form.deadline.trim() || undefined,
-      completed: editingId ? goals.find(g => g.id === editingId)?.completed : false,
-    };
-    if (editingId) {
-      await updateGoal(editingId, payload);
-    } else {
-      await addGoal(payload);
+    setSaving(true);
+    try {
+      const payload = {
+        name: form.name.trim(),
+        icon: form.icon,
+        color: form.color,
+        target: targetNum,
+        current: editingId ? goals.find(g => g.id === editingId)?.current ?? 0 : 0,
+        deadline: form.deadline.trim() || undefined,
+        completed: editingId ? goals.find(g => g.id === editingId)?.completed : false,
+      };
+      if (editingId) {
+        await updateGoal(editingId, payload);
+      } else {
+        await addGoal(payload);
+      }
+      setFormVisible(false);
+    } finally {
+      setSaving(false);
     }
-    setFormVisible(false);
   };
 
   const confirmDelete = (goal: Goal) => {
@@ -249,7 +294,10 @@ export function GoalsScreen() {
               <TextInput
                 style={[s.amountInput, { marginTop: 16 }]}
                 value={depositAmount}
-                onChangeText={setDepositAmount}
+                onChangeText={(text) => {
+                  setDepositAmount(text);
+                  touch();
+                }}
                 keyboardType="decimal-pad"
                 placeholder="Valor (R$)"
                 placeholderTextColor={C.textMuted}
@@ -291,7 +339,10 @@ export function GoalsScreen() {
               <TextInput
                 style={s.textInput}
                 value={form.name}
-                onChangeText={name => setForm(f => ({ ...f, name }))}
+                onChangeText={(name) => {
+                  setForm(f => ({ ...f, name }));
+                  touch();
+                }}
                 placeholder="Ex: Viagem"
                 placeholderTextColor={C.textMuted}
               />
@@ -301,7 +352,10 @@ export function GoalsScreen() {
               <TextInput
                 style={s.amountInput}
                 value={form.target}
-                onChangeText={target => setForm(f => ({ ...f, target }))}
+                onChangeText={(target) => {
+                  setForm(f => ({ ...f, target }));
+                  touch();
+                }}
                 keyboardType="decimal-pad"
                 placeholder="0,00"
                 placeholderTextColor={C.textMuted}

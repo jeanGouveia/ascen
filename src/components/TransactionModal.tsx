@@ -18,6 +18,7 @@ import { formatBRL, todayStr } from '../utils/helpers';
 import { useApp } from '../context/AppContext';
 import { PAYMENT_METHODS } from '../constants/finance';
 import { useCategories } from '../context/CategoryContext';
+import { useSession } from '../context/SessionContext';
 import { DateField } from './DateField';
 import {
   buildInstallmentSchedule,
@@ -37,6 +38,7 @@ export function TransactionModal({
   const { C, s } = useAppTheme();
   const { addTransaction, addTransactions } = useApp();
   const { categories } = useCategories();
+  const { touch, setCriticalFlow, setSubmitting } = useSession();
   const [type, setType] = useState<TxType>('expense');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
@@ -50,6 +52,25 @@ export function TransactionModal({
   const [amountMode, setAmountMode] = useState<AmountMode>('total');
   const [perInstallmentAmount, setPerInstallmentAmount] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Critical flow: inhibit lock when modal is open
+  useEffect(() => {
+    if (state.visible) {
+      setCriticalFlow(true);
+      touch();
+    } else {
+      setCriticalFlow(false);
+    }
+  }, [state.visible, setCriticalFlow, touch]);
+
+  // Submitting flag: inhibit lock when saving
+  useEffect(() => {
+    if (saving) {
+      setSubmitting(true);
+    } else {
+      setSubmitting(false);
+    }
+  }, [saving, setSubmitting]);
 
   useEffect(() => {
     if (state.visible) {
@@ -245,7 +266,10 @@ export function TransactionModal({
               <TextInput
                 style={[s.amountInput, { borderColor: type === 'income' ? C.success : C.danger }]}
                 value={amount}
-                onChangeText={setAmount}
+                onChangeText={(text) => {
+                  setAmount(text);
+                  touch();
+                }}
                 keyboardType="decimal-pad"
                 placeholder="0,00"
                 placeholderTextColor={C.textMuted}
@@ -257,7 +281,10 @@ export function TransactionModal({
               <TextInput
                 style={s.textInput}
                 value={description}
-                onChangeText={setDescription}
+                onChangeText={(text) => {
+                  setDescription(text);
+                  touch();
+                }}
                 placeholder="Ex: Supermercado, TV..."
                 placeholderTextColor={C.textMuted}
               />
@@ -358,7 +385,10 @@ export function TransactionModal({
                       <TextInput
                         style={[s.textInput, { width: 72, textAlign: 'center' }]}
                         value={installmentCount}
-                        onChangeText={v => setInstallmentCount(v.replace(/[^0-9]/g, ''))}
+                        onChangeText={(v) => {
+                          setInstallmentCount(v.replace(/[^0-9]/g, ''));
+                          touch();
+                        }}
                         keyboardType="number-pad"
                       />
                     </View>
@@ -409,7 +439,10 @@ export function TransactionModal({
                       <TextInput
                         style={s.textInput}
                         value={perInstallmentAmount}
-                        onChangeText={handlePerInstallmentChange}
+                        onChangeText={(text) => {
+                          handlePerInstallmentChange(text);
+                          touch();
+                        }}
                         keyboardType="decimal-pad"
                         placeholder="0,00"
                         placeholderTextColor={C.textMuted}

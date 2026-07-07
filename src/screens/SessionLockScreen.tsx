@@ -1,11 +1,48 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { useSession } from '../context/SessionContext';
 import { useAppTheme } from '../hooks/useAppTheme';
 
 export function SessionLockScreen() {
   const { unlock } = useSession();
   const { C } = useAppTheme();
+
+  useEffect(() => {
+    const attemptBiometricUnlock = async () => {
+      try {
+        const hasHardware = await LocalAuthentication.hasHardwareAsync();
+        if (!hasHardware) {
+          console.log('[LOCK] biometric hardware not available');
+          return;
+        }
+
+        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+        if (!isEnrolled) {
+          console.log('[LOCK] no biometric enrollment found');
+          return;
+        }
+
+        console.log('[LOCK] attempting biometric unlock');
+        const result = await LocalAuthentication.authenticateAsync({
+          promptMessage: 'Desbloquear sessão',
+          fallbackLabel: 'Usar senha',
+          cancelLabel: 'Cancelar',
+        });
+
+        if (result.success) {
+          console.log('[LOCK] biometric unlock successful');
+          unlock();
+        } else {
+          console.log('[LOCK] biometric unlock failed or cancelled');
+        }
+      } catch (error) {
+        console.log('[LOCK] biometric unlock error:', error);
+      }
+    };
+
+    attemptBiometricUnlock();
+  }, [unlock]);
 
   return (
     <View style={[styles.overlay, { backgroundColor: C.bg }]}>

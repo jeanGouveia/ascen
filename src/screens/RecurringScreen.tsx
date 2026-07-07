@@ -34,7 +34,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { createRecurringLocalStyles, RecurringLocalStyles } from '../styles/recurringLocalStyles';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { Card } from '../components/Shared';
@@ -43,6 +43,7 @@ import { PAYMENT_METHODS } from '../constants/finance';
 import { TxType } from '../types';
 import { useRecurring, RecurringRule, RecurringInput, RecurringFrequency } from '../context/RecurringContext';
 import { useCategories } from '../context/CategoryContext';
+import { useSession } from '../context/SessionContext';
 import { isRuleActiveInCurrentMonth } from '../utils/recurringDates';
 
 // ─── TIPOS ───────────────────────────────────────────────────
@@ -193,9 +194,28 @@ interface RuleFormProps {
 
 function RuleForm({ visible, editing, onSave, onClose, ls }: RuleFormProps) {
   const { C, s } = useAppTheme();
+  const { touch, setCriticalFlow } = useSession();
   const [type, setType]           = useState<TxType>('expense');
   const [desc, setDesc]           = useState('');
   const [amount, setAmount]       = useState('');
+
+  // Critical flow: inhibit lock when form modal is open
+  useEffect(() => {
+    if (visible) {
+      setCriticalFlow(true);
+      touch();
+    } else {
+      setCriticalFlow(false);
+    }
+  }, [visible, setCriticalFlow, touch]);
+
+  // Reset timer when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      touch();
+    }, [touch])
+  );
+
   const [category, setCategory]   = useState('');
   const [catIcon, setCatIcon]     = useState('📦');
   const [catColor, setCatColor]   = useState<string>(C.textMuted);
@@ -293,7 +313,12 @@ function RuleForm({ visible, editing, onSave, onClose, ls }: RuleFormProps) {
             <View style={s.formGroup}>
               <Text style={s.formLabel}>DESCRIÇÃO</Text>
               <TextInput
-                style={s.textInput} value={desc} onChangeText={setDesc}
+                style={s.textInput}
+                value={desc}
+                onChangeText={(text) => {
+                  setDesc(text);
+                  touch();
+                }}
                 placeholder="Ex: Plano de saúde, Netflix, Salário..."
                 placeholderTextColor={C.textMuted}
               />
@@ -307,7 +332,10 @@ function RuleForm({ visible, editing, onSave, onClose, ls }: RuleFormProps) {
               <TextInput
                 style={s.textInput}
                 value={startsOn}
-                onChangeText={setStartsOn}
+                onChangeText={(text) => {
+                  setStartsOn(text);
+                  touch();
+                }}
                 placeholder="AAAA-MM-DD"
                 placeholderTextColor={C.textMuted}
                 keyboardType="numbers-and-punctuation"
@@ -319,8 +347,14 @@ function RuleForm({ visible, editing, onSave, onClose, ls }: RuleFormProps) {
               <Text style={s.formLabel}>VALOR (R$)</Text>
               <TextInput
                 style={[s.amountInput, { borderColor: type === 'income' ? C.success : C.danger }]}
-                value={amount} onChangeText={setAmount}
-                keyboardType="decimal-pad" placeholder="0,00" placeholderTextColor={C.textMuted}
+                value={amount}
+                onChangeText={(text) => {
+                  setAmount(text);
+                  touch();
+                }}
+                keyboardType="decimal-pad"
+                placeholder="0,00"
+                placeholderTextColor={C.textMuted}
               />
             </View>
 
@@ -350,8 +384,13 @@ function RuleForm({ visible, editing, onSave, onClose, ls }: RuleFormProps) {
                 </Text>
                 <TextInput
                   style={[s.textInput, { fontSize: 22, fontWeight: '700', textAlign: 'center', paddingVertical: 18 }]}
-                  value={day} onChangeText={v => setDay(v.replace(/[^0-9]/g, ''))}
-                  keyboardType="number-pad" placeholder="5"
+                  value={day}
+                  onChangeText={(v) => {
+                    setDay(v.replace(/[^0-9]/g, ''));
+                    touch();
+                  }}
+                  keyboardType="number-pad"
+                  placeholder="5"
                   placeholderTextColor={C.textMuted}
                 />
                 <Text style={{ color: C.textMuted, fontSize: 11, marginTop: 4, textAlign: 'center' }}>

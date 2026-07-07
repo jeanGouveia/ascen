@@ -23,6 +23,7 @@ import { ResetPasswordScreen } from './src/screens/ResetPasswordScreen'; // ← 
 import { SessionLockScreen } from './src/screens/SessionLockScreen';
 import { TransactionModal } from './src/components/TransactionModal';
 import { CoachMarksOverlay } from './src/components/CoachMarksOverlay';
+import { ActivityTracker } from './src/components/ActivityTracker';
 import { getColors, C_light } from './src/styles/theme';
 import { requestPullOnly } from './src/services/sync/syncCoordinator';
 import { SyncReason } from './src/types/sync';
@@ -223,9 +224,11 @@ function AppContent() {
   return (
     <>
       <StatusBar style={darkMode ? 'light' : 'dark'} />
-      <AppNavigator />
-      <TransactionModal state={modalState} onClose={closeTxModal} />
-      <CoachMarksOverlay />
+      <ActivityTracker>
+        <AppNavigator />
+        <TransactionModal state={modalState} onClose={closeTxModal} />
+        <CoachMarksOverlay />
+      </ActivityTracker>
       {locked && <SessionLockScreen />}
     </>
   );

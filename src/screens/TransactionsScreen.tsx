@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { formatBRL, formatDate, currentMonthName } from '../utils/helpers';
 import { Card, EmptyState, TxCard, FAB } from '../components/Shared';
 import { useApp } from '../context/AppContext';
 import { useRecurring } from '../context/RecurringContext';
 import { useAuth } from '../context/AuthContext';
+import { useSession } from '../context/SessionContext';
 import { requestSync } from '../services/sync/syncCoordinator';
 import { SyncReason } from '../types/sync';
 import { isRuleActiveInCurrentMonth } from '../utils/recurringDates';
@@ -19,8 +20,16 @@ export function TransactionsScreen() {
   const { transactions } = useApp();
   const { rules } = useRecurring();
   const { user } = useAuth();
+  const { touch } = useSession();
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [refreshing, setRefreshing] = useState(false);
+
+  // Reset timer when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      touch();
+    }, [touch])
+  );
 
   const recurringThisMonth = rules.filter(r => r.active && isRuleActiveInCurrentMonth(r));
   const recurringPending = recurringThisMonth.filter(r => !r.confirmedThisMonth);

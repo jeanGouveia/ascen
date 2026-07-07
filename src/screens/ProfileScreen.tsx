@@ -14,11 +14,12 @@ import {
 import * as StoreReview from 'expo-store-review';
 import Constants from 'expo-constants';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { usePreferences } from '../context/PreferencesContext';
 import { Card } from '../components/Shared';
 import { useAuth } from '../context/AuthContext';
+import { useSession } from '../context/SessionContext';
 import { useUserLocal } from '../context/UserLocalDataContext';
 import { useFamily } from '../context/FamilyContext';
 import { initialSync } from '../services/sync/syncEngine';
@@ -43,9 +44,17 @@ export function ProfileScreen() {
   const { darkMode, setDarkMode, fontScale, setFontScale } = usePreferences();
   const { localAvatarUri, bumpDataRevision } = useUserLocal();
   const { joinCode, role, joinByCode, refreshFamily } = useFamily();
+  const { touch } = useSession();
 
   const [busy, setBusy] = useState(false);
   const [joinCodeInput, setJoinCodeInput] = useState('');
+
+  // Reset timer when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      touch();
+    }, [touch])
+  );
 
   const meta = user?.user_metadata as Record<string, string | undefined> | undefined;
   const displayName = meta?.full_name || 'Usuário';
@@ -199,7 +208,10 @@ export function ProfileScreen() {
             </Text>
             <TextInput
               value={joinCodeInput}
-              onChangeText={t => setJoinCodeInput(t.toUpperCase())}
+              onChangeText={(t) => {
+                setJoinCodeInput(t.toUpperCase());
+                touch();
+              }}
               placeholder="Código de 8 letras"
               placeholderTextColor={C.textMuted}
               autoCapitalize="characters"

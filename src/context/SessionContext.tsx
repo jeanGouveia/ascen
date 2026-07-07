@@ -10,6 +10,9 @@ interface SessionContextType {
   unlock: () => void;
   touch: () => void;
   isLocked: boolean;
+  setCriticalFlow: (active: boolean) => void;
+  setUserInteracting: (active: boolean) => void;
+  setSubmitting: (active: boolean) => void;
 }
 
 const SessionContext = createContext<SessionContextType | undefined>(undefined);
@@ -82,6 +85,11 @@ export function SessionProvider({ children }: Props) {
 
   const lock = useCallback(() => {
     setLocked(true);
+    // Ao bloquear manualmente, registra nova atividade para evitar relock imediato
+    if (managerRef.current) {
+      managerRef.current.touch();
+      setLastActivity(managerRef.current.getLastActivity());
+    }
   }, []);
 
   const unlock = useCallback(() => {
@@ -100,6 +108,24 @@ export function SessionProvider({ children }: Props) {
     }
   }, []);
 
+  const setCriticalFlow = useCallback((active: boolean) => {
+    if (managerRef.current) {
+      managerRef.current.setCriticalFlow(active);
+    }
+  }, []);
+
+  const setUserInteracting = useCallback((active: boolean) => {
+    if (managerRef.current) {
+      managerRef.current.setUserInteracting(active);
+    }
+  }, []);
+
+  const setSubmitting = useCallback((active: boolean) => {
+    if (managerRef.current) {
+      managerRef.current.setSubmitting(active);
+    }
+  }, []);
+
   const isLocked = locked;
 
   const value: SessionContextType = {
@@ -109,6 +135,9 @@ export function SessionProvider({ children }: Props) {
     unlock,
     touch,
     isLocked,
+    setCriticalFlow,
+    setUserInteracting,
+    setSubmitting,
   };
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
