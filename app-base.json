@@ -80,7 +80,9 @@
           "photosPermission": "O Ascen precisa acessar suas fotos para definir a imagem de perfil."
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "./plugins/withAndroidManifestSecurity",
+      "./plugins/withBackupRules"
     ]
   }
 }
