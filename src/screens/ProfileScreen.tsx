@@ -24,6 +24,7 @@ import { useUserLocal } from '../context/UserLocalDataContext';
 import { useFamily } from '../context/FamilyContext';
 import { initialSync } from '../services/sync/syncEngine';
 import { sanitizeGenericText } from '../utils/inputSanitizer';
+import { logError } from '../services/sentry';
 
 type ProfileMenuItem = {
   icon: string;
@@ -78,7 +79,9 @@ export function ProfileScreen() {
         'Os lançamentos compartilhados serão sincronizados automaticamente quando houver internet.'
       );
     } catch (e) {
-      Alert.alert('Falha', e instanceof Error ? e.message : String(e));
+      const error = e instanceof Error ? e : new Error('Failed to join family');
+      logError(error, { context: 'handleJoinFamily', code: sanitizedCode });
+      Alert.alert('Falha', 'Não foi possível entrar na família. Verifique o código e tente novamente.');
     } finally {
       setBusy(false);
     }

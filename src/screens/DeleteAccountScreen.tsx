@@ -20,6 +20,7 @@ import { removeLocalAvatar } from '../services/localAvatar';
 import { purgeAllBackupDataForUser } from '../experimental/backup/services/backupPassphrase';
 import { clearStoredGoogleTokens } from '../experimental/backup/services/googleAccessToken';
 import { SUPPORT_EMAIL, DELETE_ACCOUNT_URL } from '../constants/legal';
+import { logError } from '../services/sentry';
 
 export function DeleteAccountScreen() {
   const navigation = useNavigation<any>();
@@ -75,10 +76,11 @@ export function DeleteAccountScreen() {
       await signOut();
     } catch (err) {
       setBusy(false);
-      const message = err instanceof Error ? err.message : 'Erro desconhecido';
+      const error = err instanceof Error ? err : new Error('Failed to delete account');
+      logError(error, { context: 'confirmDeletion', userId: user.id });
       Alert.alert(
         'Erro ao excluir conta',
-        `Não foi possível excluir sua conta: ${message}. Tente novamente ou entre em contato com ${SUPPORT_EMAIL}.`
+        `Não foi possível excluir sua conta. Tente novamente ou entre em contato com ${SUPPORT_EMAIL}.`
       );
     }
   }
@@ -86,7 +88,9 @@ export function DeleteAccountScreen() {
   async function openWebDeletionPage() {
     try {
       await Linking.openURL(DELETE_ACCOUNT_URL);
-    } catch {
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Failed to open deletion URL');
+      logError(error, { context: 'openWebDeletionPage', url: DELETE_ACCOUNT_URL });
       Alert.alert(
         'Erro',
         'Não foi possível abrir a página. Acesse manualmente: valtun.com.br/excluir-conta'

@@ -16,6 +16,7 @@ import { FormInput } from '../components/FormInput';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { R } from '../styles/theme';
 import { validatePassword, PASSWORD_MIN_LENGTH } from '../utils/passwordPolicy';
+import { logError } from '../services/sentry';
 
 interface Props {
   onSuccess: () => void; // callback para voltar ao Login após redefinir
@@ -53,8 +54,10 @@ export function ResetPasswordScreen({ onSuccess }: Props) {
         'Sua senha foi alterada com sucesso. Use-a na próxima vez que entrar.',
         [{ text: 'OK', onPress: onSuccess }]
       );
-    } catch (err: any) {
-      Alert.alert('Erro', err.message ?? 'Não foi possível redefinir a senha. Tente novamente.');
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error('Failed to reset password');
+      logError(error, { context: 'handleSubmit' });
+      Alert.alert('Erro', 'Não foi possível redefinir a senha. Tente novamente.');
     } finally {
       setSubmitting(false);
     }

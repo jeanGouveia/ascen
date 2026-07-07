@@ -24,6 +24,7 @@ import { SessionLockScreen } from './src/screens/SessionLockScreen';
 import { TransactionModal } from './src/components/TransactionModal';
 import { CoachMarksOverlay } from './src/components/CoachMarksOverlay';
 import { ActivityTracker } from './src/components/ActivityTracker';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { getColors, C_light } from './src/styles/theme';
 import { requestPullOnly } from './src/services/sync/syncCoordinator';
 import { SyncReason } from './src/types/sync';
@@ -31,6 +32,10 @@ import { syncLog } from './src/utils/syncLogger';
 import { getSyncEligibility } from './src/services/sync/syncEligibility';
 import * as SplashScreen from 'expo-splash-screen';
 import { supabase } from './src/services/supabase';
+import { initSentry, setUserContext, logError } from './src/services/sentry';
+
+// Initialize Sentry at module level, before React tree mounts
+initSentry();
 
 function getActiveRouteName(state: NavigationState | undefined): string | undefined {
   if (!state) return undefined;
@@ -146,8 +151,8 @@ function useDeepLinkPasswordReset() {
           });
         }
       } catch (e) {
-        // eslint-disable-next-line no-console
-        console.warn('[PasswordReset] Falha ao trocar token:', e);
+        const error = e instanceof Error ? e : new Error('Failed to exchange password reset token');
+        logError(error, { context: 'useDeepLinkPasswordReset', hasCode: !!code, hasTokens: !!(accessToken && refreshToken) });
       }
     }
 
@@ -170,6 +175,15 @@ function useDeepLinkPasswordReset() {
 function AuthGate() {
   const { user, loading, awaitingPasswordReset } = useAuth();
   const [screen, setScreen] = useState<'login' | 'register'>('login');
+
+  // Update Sentry user context when auth changes
+  useEffect(() => {
+    if (user) {
+      setUserContext(user.id, null); // FamilyId can be added later if needed
+    } else {
+      setUserContext(null, null);
+    }
+  }, [user]);
 
   // Registra o listener de deep links de recuperação de senha
   useDeepLinkPasswordReset();
@@ -239,33 +253,35 @@ function AppContent() {
 export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <PreferencesProvider>
-          <ThemedNavigation>
-            <AuthProvider>
-              <SessionProvider>
-                <UserLocalDataProvider>
-                  <SyncLifecycleProvider>
-                    <FamilyProvider>
-                      <AppProvider>
-                        <CategoryProvider>
-                          <RecurringProvider>
-                            <GoalsProvider>
-                              <OnboardingProvider>
-                                <AuthGate />
-                              </OnboardingProvider>
-                            </GoalsProvider>
-                          </RecurringProvider>
-                        </CategoryProvider>
-                      </AppProvider>
-                    </FamilyProvider>
-                  </SyncLifecycleProvider>
-                </UserLocalDataProvider>
-              </SessionProvider>
-            </AuthProvider>
-          </ThemedNavigation>
-        </PreferencesProvider>
-      </SafeAreaProvider>
+      <ErrorBoundary>
+        <SafeAreaProvider>
+          <PreferencesProvider>
+            <ThemedNavigation>
+              <AuthProvider>
+                <SessionProvider>
+                  <UserLocalDataProvider>
+                    <SyncLifecycleProvider>
+                      <FamilyProvider>
+                        <AppProvider>
+                          <CategoryProvider>
+                            <RecurringProvider>
+                              <GoalsProvider>
+                                <OnboardingProvider>
+                                  <AuthGate />
+                                </OnboardingProvider>
+                              </GoalsProvider>
+                            </RecurringProvider>
+                          </CategoryProvider>
+                        </AppProvider>
+                      </FamilyProvider>
+                    </SyncLifecycleProvider>
+                  </UserLocalDataProvider>
+                </SessionProvider>
+              </AuthProvider>
+            </ThemedNavigation>
+          </PreferencesProvider>
+        </SafeAreaProvider>
+      </ErrorBoundary>
     </GestureHandlerRootView>
   );
 }

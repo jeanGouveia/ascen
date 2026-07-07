@@ -13,6 +13,7 @@ import { pullGoals, pushGoal, deleteGoalRemote, pushGoalDeposit } from './entiti
 import { metaGet, metaSet } from '../../db/localDataDb';
 import { syncLog } from '../../utils/syncLogger';
 import { SyncReason } from '../../types/sync';
+import { logError } from '../sentry';
 
 export interface SyncResult {
   success: boolean;
@@ -122,8 +123,9 @@ async function runPullWithRetry(familyId: string, maxAttempts = 3): Promise<{
       return result;
     } catch (e) {
       lastError = e instanceof Error ? e : new Error(String(e));
+      logError(lastError, { context: 'pullRemoteChanges', attempt, maxAttempts, familyId });
       syncLog('[SYNC] pull failed', `attempt=${attempt}/${maxAttempts}`, `error=${lastError.message}`);
-      
+
       if (attempt < maxAttempts) {
         const delay = BASE_RETRY_MS * 2 ** (attempt - 1);
         syncLog('[SYNC] pull retry', `delayMs=${delay}`, `nextAttempt=${attempt + 1}/${maxAttempts}`);
@@ -244,7 +246,9 @@ export async function pushLocalChanges(userId: string | null): Promise<void> {
         `remainingIds=${remaining.map(r => r.id).join(',') || '(none)'}`,
       );
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
+      const error = e instanceof Error ? e : new Error(String(e));
+      logError(error, { context: 'processOutboxItem', item: formatOutboxItemSummary(item) });
+      const msg = error.message;
       const attempts = item.attempts + 1;
       await markOutboxFailed(item.id, msg, attempts);
       if (attempts >= MAX_ATTEMPTS) {
@@ -323,7 +327,9 @@ export async function runFullSync(userId: string | null, origin?: SyncReason): P
     }
     return result;
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const error = e instanceof Error ? e : new Error(String(e));
+    logError(error, { context: 'runFullSync', origin: resolvedOrigin, userId });
+    const msg = error.message;
     store.setLastError(msg);
     store.setStatus(isOnlineError(msg) ? 'offline' : 'error');
     const pending = await countPendingOutbox();
@@ -415,7 +421,9 @@ export async function runPullOnly(userId: string | null, origin?: SyncReason): P
     }
     return result;
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const error = e instanceof Error ? e : new Error(String(e));
+    logError(error, { context: 'runPullOnly', origin: resolvedOrigin, userId });
+    const msg = error.message;
     store.setLastError(msg);
     store.setStatus(isOnlineError(msg) ? 'offline' : 'error');
     syncLog(

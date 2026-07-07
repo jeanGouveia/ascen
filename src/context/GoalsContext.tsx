@@ -9,6 +9,7 @@ import { scheduleSync } from '../services/sync/syncEngine';
 import { getLocalFamilyId } from '../services/family';
 import { logger } from '../utils/logger';
 import { syncLog } from '../utils/syncLogger';
+import { logError } from '../services/sentry';
 
 interface GoalsContextType {
   goals: Goal[];
@@ -52,7 +53,9 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
     `names=${rows.map(r => r.name).join(',')}`,
 );
     } catch (e) {
-      logger.error('Metas:', e instanceof Error ? e.message : e);
+      const error = e instanceof Error ? e : new Error('Failed to reload goals');
+      logError(error, { context: 'reloadGoals' });
+      logger.error('Metas:', error.message);
     } finally {
       setLoading(false);
     }
@@ -84,7 +87,9 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
         if (user) scheduleSync(user.id);
         await reload();
       } catch (e) {
-        Alert.alert('Erro', e instanceof Error ? e.message : 'Falha ao criar meta');
+        const error = e instanceof Error ? e : new Error('Failed to add goal');
+        logError(error, { context: 'addGoal', data });
+        Alert.alert('Erro', 'Falha ao criar meta. Tente novamente.');
       }
     },
     [localDataReady, reload, user]
@@ -105,7 +110,9 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
         if (user) scheduleSync(user.id);
         await reload();
       } catch (e) {
-        Alert.alert('Erro', e instanceof Error ? e.message : 'Falha ao atualizar');
+        const error = e instanceof Error ? e : new Error('Failed to update goal');
+        logError(error, { context: 'updateGoal', id, data });
+        Alert.alert('Erro', 'Falha ao atualizar meta. Tente novamente.');
       }
     },
     [localDataReady, reload, user]
@@ -126,7 +133,9 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
         if (user) scheduleSync(user.id);
         setGoals(prev => prev.filter(g => g.id !== id));
       } catch (e) {
-        Alert.alert('Erro', e instanceof Error ? e.message : 'Falha ao excluir');
+        const error = e instanceof Error ? e : new Error('Failed to delete goal');
+        logError(error, { context: 'deleteGoal', id });
+        Alert.alert('Erro', 'Falha ao excluir meta. Tente novamente.');
       }
     },
     [localDataReady, user]
@@ -148,7 +157,9 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
         if (user) scheduleSync(user.id);
         await reload();
       } catch (e) {
-        Alert.alert('Erro', e instanceof Error ? e.message : 'Falha ao depositar na meta');
+        const error = e instanceof Error ? e : new Error('Failed to deposit to goal');
+        logError(error, { context: 'depositToGoal', id, amount });
+        Alert.alert('Erro', 'Falha ao depositar na meta. Tente novamente.');
       }
     },
     [localDataReady, reload, user]

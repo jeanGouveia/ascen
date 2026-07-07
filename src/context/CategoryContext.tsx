@@ -7,6 +7,7 @@ import { CATEGORIES } from '../constants/finance';
 import * as localDb from '../db/localDataDb';
 import { scheduleSync } from '../services/sync/syncEngine';
 import { logger } from '../utils/logger';
+import { logError } from '../services/sentry';
 
 interface CategoryContextType {
   categories: Category[];
@@ -59,7 +60,9 @@ export const CategoryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const rows = await localDb.listCustomCategories();
       setCustomCategories(rows);
     } catch (err: unknown) {
-      logger.error('Erro ao buscar categorias:', err instanceof Error ? err.message : err);
+      const error = err instanceof Error ? err : new Error('Failed to fetch categories');
+      logError(error, { context: 'fetchCategories' });
+      logger.error('Erro ao buscar categorias:', error.message);
     } finally {
       setLoading(false);
     }
@@ -77,7 +80,9 @@ export const CategoryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         scheduleSync(user.id);
         await fetchCategories();
       } catch (err: unknown) {
-        Alert.alert('Erro ao salvar', err instanceof Error ? err.message : 'Erro desconhecido');
+        const error = err instanceof Error ? err : new Error('Failed to add category');
+        logError(error, { context: 'addCategory', data });
+        Alert.alert('Erro ao salvar', 'Não foi possível salvar a categoria. Tente novamente.');
       }
     },
     [user, localDataReady, fetchCategories]
@@ -95,7 +100,9 @@ export const CategoryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         scheduleSync(user.id);
         await fetchCategories();
       } catch (err: unknown) {
-        Alert.alert('Erro ao atualizar', err instanceof Error ? err.message : 'Erro desconhecido');
+        const error = err instanceof Error ? err : new Error('Failed to update category');
+        logError(error, { context: 'updateCategory', id, data });
+        Alert.alert('Erro ao atualizar', 'Não foi possível atualizar a categoria. Tente novamente.');
       }
     },
     [localDataReady, fetchCategories]
@@ -110,7 +117,9 @@ export const CategoryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (user) scheduleSync(user.id);
         setCustomCategories(prev => prev.filter(c => c.id !== id));
       } catch (err: unknown) {
-        Alert.alert('Erro ao excluir', err instanceof Error ? err.message : 'Erro desconhecido');
+        const error = err instanceof Error ? err : new Error('Failed to delete category');
+        logError(error, { context: 'deleteCategory', id });
+        Alert.alert('Erro ao excluir', 'Não foi possível excluir a categoria. Tente novamente.');
       }
     },
     [localDataReady, user]

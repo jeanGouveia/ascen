@@ -1,6 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 import * as FileSystem from 'expo-file-system/legacy';
 import { logger } from '../utils/logger';
+import { logError } from '../services/sentry';
 
 let dbInstance: SQLite.SQLiteDatabase | null = null;
 let dbUserId: string | null = null;
@@ -10,10 +11,16 @@ export async function ensureUserDatabase(userId: string): Promise<SQLite.SQLiteD
     return dbInstance;
   }
   await closeUserDatabase();
-  const db = await SQLite.openDatabaseAsync(`ascen_${userId}.db`);
-  dbInstance = db;
-  dbUserId = userId;
-  return db;
+  try {
+    const db = await SQLite.openDatabaseAsync(`ascen_${userId}.db`);
+    dbInstance = db;
+    dbUserId = userId;
+    return db;
+  } catch (e) {
+    const error = e instanceof Error ? e : new Error('Failed to open SQLite database');
+    logError(error, { context: 'ensureUserDatabase', userId });
+    throw error;
+  }
 }
 
 export async function closeUserDatabase(): Promise<void> {
@@ -60,6 +67,8 @@ export async function deleteUserDatabase(userId: string): Promise<void> {
       }
     }
   } catch (e) {
-    logger.warn('Erro ao deletar arquivo SQLite:', e);
+    const error = e instanceof Error ? e : new Error('Failed to delete SQLite database');
+    logError(error, { context: 'deleteUserDatabase', userId });
+    logger.warn('Erro ao deletar arquivo SQLite:', error.message);
   }
 }

@@ -6,6 +6,7 @@ import { Transaction, TxType, TxModalState } from '../types';
 import * as localDb from '../db/localDataDb';
 import { scheduleSync } from '../services/sync/syncEngine';
 import { logger } from '../utils/logger';
+import { logError } from '../services/sentry';
 
 interface AppContextType {
   transactions: Transaction[];
@@ -35,7 +36,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const rows = await localDb.listTransactions();
       setTransactions(rows);
     } catch (error: unknown) {
-      logger.error('Erro ao buscar transações:', error instanceof Error ? error.message : error);
+      const err = error instanceof Error ? error : new Error('Failed to fetch transactions');
+      logError(err, { context: 'fetchTransactions' });
+      logger.error('Erro ao buscar transações:', err.message);
     } finally {
       setLoading(false);
     }
@@ -58,7 +61,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       scheduleSync(user.id);
       await fetchTransactions();
     } catch (error: unknown) {
-      Alert.alert('Erro ao salvar', error instanceof Error ? error.message : 'Erro desconhecido');
+      const err = error instanceof Error ? error : new Error('Failed to add transaction');
+      logError(err, { context: 'addTransaction', data });
+      Alert.alert('Erro ao salvar', 'Não foi possível salvar a transação. Tente novamente.');
     }
   }, [user, localDataReady, fetchTransactions]);
 
@@ -72,7 +77,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         scheduleSync(user.id);
         await fetchTransactions();
       } catch (error: unknown) {
-        Alert.alert('Erro ao salvar', error instanceof Error ? error.message : 'Erro desconhecido');
+        const err = error instanceof Error ? error : new Error('Failed to add transactions');
+        logError(err, { context: 'addTransactions', count: txs.length });
+        Alert.alert('Erro ao salvar', 'Não foi possível salvar as transações. Tente novamente.');
       }
     },
     [user, localDataReady, fetchTransactions]
@@ -86,7 +93,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (user) scheduleSync(user.id);
         setTransactions(prev => prev.filter(t => t.id !== id));
       } catch (error: unknown) {
-        Alert.alert('Erro ao excluir', error instanceof Error ? error.message : 'Erro desconhecido');
+        const err = error instanceof Error ? error : new Error('Failed to delete transaction');
+        logError(err, { context: 'deleteTransaction', id });
+        Alert.alert('Erro ao excluir', 'Não foi possível excluir a transação. Tente novamente.');
       }
     },
     [localDataReady, user]

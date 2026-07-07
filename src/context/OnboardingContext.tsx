@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import { logError } from '../services/sentry';
 
 const STORAGE_KEY = 'ascen_onboarding_v1';
 
@@ -23,7 +24,10 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         // Se nunca foi visto, marca para mostrar
         if (!val) setShouldShow(true);
       })
-      .catch(() => {})
+      .catch(e => {
+        const error = e instanceof Error ? e : new Error('Failed to read onboarding state');
+        logError(error, { context: 'readOnboardingState' });
+      })
       .finally(() => setIsReady(true));
   }, []);
 
@@ -33,7 +37,11 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
 
   const finishOnboarding = useCallback(() => {
     setShouldShow(false);
-    SecureStore.setItemAsync(STORAGE_KEY, 'done').catch(() => {});
+    SecureStore.setItemAsync(STORAGE_KEY, 'done')
+      .catch(e => {
+        const error = e instanceof Error ? e : new Error('Failed to save onboarding state');
+        logError(error, { context: 'saveOnboardingState' });
+      });
   }, []);
 
   return (

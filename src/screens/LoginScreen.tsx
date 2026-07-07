@@ -22,6 +22,7 @@ import { useAppTheme } from '../hooks/useAppTheme';
 import { C_light as C, R } from '../styles/theme';
 import { validatePassword, PASSWORD_MIN_LENGTH } from '../utils/passwordPolicy';
 import { sanitizeEmail } from '../utils/inputSanitizer';
+import { logError } from '../services/sentry';
 
 interface Props {
   onNavigateRegister: () => void;
@@ -131,8 +132,10 @@ export function LoginScreen({ onNavigateRegister }: Props) {
       setFailedAttempts(0);
       setLockLevel(0);
       setBlockedUntil(null);
-    } catch (err: any) {
-      Alert.alert('Não foi possível entrar', err.message);
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error('Unknown login error');
+      logError(error, { context: 'handleLogin', email: sanitizeEmail(email) });
+      Alert.alert('Não foi possível entrar', 'Verifique seu e-mail e senha e tente novamente.');
       shake();
       setFailedAttempts(prev => {
         const newAttempts = prev + 1;
@@ -153,8 +156,10 @@ export function LoginScreen({ onNavigateRegister }: Props) {
     setGoogleLoading(true);
     try {
       await signInWithGoogle();
-    } catch (err: any) {
-      Alert.alert('Erro no login com Google', err.message);
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error('Unknown Google login error');
+      logError(error, { context: 'handleGoogle' });
+      Alert.alert('Erro no login com Google', 'Não foi possível entrar com Google. Tente novamente.');
     } finally {
       setGoogleLoading(false);
     }
@@ -227,7 +232,9 @@ export function LoginScreen({ onNavigateRegister }: Props) {
                     'Se esse e-mail estiver cadastrado, você receberá um link para redefinir sua senha.'
                   );
                 } catch (err) {
-                  Alert.alert('Erro', err instanceof Error ? err.message : 'Tente novamente.');
+                  const error = err instanceof Error ? err : new Error('Failed to send password reset email');
+                  logError(error, { context: 'resetPassword', email: sanitizeEmail(email) });
+                  Alert.alert('Erro', 'Não foi possível enviar o e-mail. Tente novamente.');
                 }
               }}
             >

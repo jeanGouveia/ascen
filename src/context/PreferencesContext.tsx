@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import { logError } from '../services/sentry';
 
 const STORAGE_KEY = 'ascen_preferences_v1';
 
@@ -53,13 +54,20 @@ async function readStored(): Promise<PreferencesState> {
       notifyFiveDaysBefore:
         typeof parsed.notifyFiveDaysBefore === 'boolean' ? parsed.notifyFiveDaysBefore : defaults.notifyFiveDaysBefore,
     };
-  } catch {
+  } catch (e) {
+    const error = e instanceof Error ? e : new Error('Failed to read preferences');
+    logError(error, { context: 'readStored' });
     return defaults;
   }
 }
 
 async function writeStored(state: PreferencesState) {
-  await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(state));
+  try {
+    await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    const error = e instanceof Error ? e : new Error('Failed to write preferences');
+    logError(error, { context: 'writeStored', stateKeys: Object.keys(state) });
+  }
 }
 
 export function PreferencesProvider({ children }: { children: React.ReactNode }) {
@@ -68,12 +76,21 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     let alive = true;
-    readStored().then(next => {
-      if (alive) {
-        setState(next);
-        setLoaded(true);
-      }
-    });
+    readStored()
+      .then(next => {
+        if (alive) {
+          setState(next);
+          setLoaded(true);
+        }
+      })
+      .catch(e => {
+        if (alive) {
+          const error = e instanceof Error ? e : new Error('Failed to read preferences on init');
+          logError(error, { context: 'preferencesInit' });
+          setState(defaults);
+          setLoaded(true);
+        }
+      });
     return () => {
       alive = false;
     };
@@ -82,7 +99,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
   const setDarkMode = useCallback((darkMode: boolean) => {
     setState(prev => {
       const next = { ...prev, darkMode };
-      writeStored(next).catch(() => {});
+      void writeStored(next);
       return next;
     });
   }, []);
@@ -90,7 +107,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
   const setFontScale = useCallback((fontScale: FontScale) => {
     setState(prev => {
       const next = { ...prev, fontScale };
-      writeStored(next).catch(() => {});
+      void writeStored(next);
       return next;
     });
   }, []);
@@ -98,7 +115,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
   const setNotificationsEnabled = useCallback((notificationsEnabled: boolean) => {
     setState(prev => {
       const next = { ...prev, notificationsEnabled };
-      writeStored(next).catch(() => {});
+      void writeStored(next);
       return next;
     });
   }, []);
@@ -106,7 +123,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
   const setNotifyDayOf = useCallback((notifyDayOf: boolean) => {
     setState(prev => {
       const next = { ...prev, notifyDayOf };
-      writeStored(next).catch(() => {});
+      void writeStored(next);
       return next;
     });
   }, []);
@@ -114,7 +131,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
   const setNotifyOneDayBefore = useCallback((notifyOneDayBefore: boolean) => {
     setState(prev => {
       const next = { ...prev, notifyOneDayBefore };
-      writeStored(next).catch(() => {});
+      void writeStored(next);
       return next;
     });
   }, []);
@@ -122,7 +139,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
   const setNotifyFiveDaysBefore = useCallback((notifyFiveDaysBefore: boolean) => {
     setState(prev => {
       const next = { ...prev, notifyFiveDaysBefore };
-      writeStored(next).catch(() => {});
+      void writeStored(next);
       return next;
     });
   }, []);

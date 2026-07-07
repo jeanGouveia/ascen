@@ -16,6 +16,7 @@ import { syncRecurringProjectedTransactions } from '../services/recurringProject
 import { logger } from '../utils/logger';
 import { scheduleRecurringNotifications } from '../services/notificationScheduler';
 import { usePreferences } from './PreferencesContext';
+import { logError } from '../services/sentry';
 
 export type RecurringFrequency = 'monthly' | 'weekly' | 'yearly';
 
@@ -117,7 +118,9 @@ export const RecurringProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const rows = await localDb.listRecurringRows();
       setRules(rows.map(mapRow));
     } catch (err: unknown) {
-      logger.error('RecurringContext.reload:', err instanceof Error ? err.message : err);
+      const error = err instanceof Error ? err : new Error('Failed to reload recurring rules');
+      logError(error, { context: 'reloadRecurringRules' });
+      logger.error('RecurringContext.reload:', error.message);
     } finally {
       setLoading(false);
     }
@@ -151,7 +154,9 @@ export const RecurringProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const rows = await localDb.listRecurringRows();
         await reschedule(rows.map(mapRow));
       } catch (err: unknown) {
-        Alert.alert('Erro ao salvar', err instanceof Error ? err.message : 'Erro desconhecido');
+        const error = err instanceof Error ? err : new Error('Failed to add recurring rule');
+        logError(error, { context: 'addRule', data });
+        Alert.alert('Erro ao salvar', 'Não foi possível salvar a regra. Tente novamente.');
       }
     },
     [user, localDataReady, reload, fetchTransactions, reschedule]
@@ -198,7 +203,9 @@ export const RecurringProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const rows = await localDb.listRecurringRows();
         await reschedule(rows.map(mapRow));
       } catch (err: unknown) {
-        Alert.alert('Erro ao atualizar', err instanceof Error ? err.message : 'Erro desconhecido');
+        const error = err instanceof Error ? err : new Error('Failed to update recurring rule');
+        logError(error, { context: 'updateRule', id, data });
+        Alert.alert('Erro ao atualizar', 'Não foi possível atualizar a regra. Tente novamente.');
       }
     },
     [localDataReady, reload, user, rules, fetchTransactions, reschedule]
@@ -217,7 +224,9 @@ export const RecurringProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           return next;
         });
       } catch (err: unknown) {
-        Alert.alert('Erro ao excluir', err instanceof Error ? err.message : 'Erro desconhecido');
+        const error = err instanceof Error ? err : new Error('Failed to delete recurring rule');
+        logError(error, { context: 'deleteRule', id });
+        Alert.alert('Erro ao excluir', 'Não foi possível excluir a regra. Tente novamente.');
       }
     },
     [localDataReady, user, fetchTransactions, reschedule]
@@ -268,7 +277,9 @@ export const RecurringProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           )
         );
       } catch (err: unknown) {
-        Alert.alert('Erro ao confirmar', err instanceof Error ? err.message : 'Erro desconhecido');
+        const error = err instanceof Error ? err : new Error('Failed to confirm recurring rule');
+        logError(error, { context: 'confirmRule', ruleId: rule.id });
+        Alert.alert('Erro ao confirmar', 'Não foi possível confirmar a regra. Tente novamente.');
       }
     },
     [user, localDataReady, fetchTransactions]

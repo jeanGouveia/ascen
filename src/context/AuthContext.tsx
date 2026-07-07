@@ -8,6 +8,7 @@ import { clearStoredGoogleTokens } from '../experimental/backup/services/googleA
 import { authorizeGoogleDriveDirect } from '../experimental/backup/services/googleDriveAuthDirect';
 import { isGoogleDriveConfigured, getGoogleDriveSetupHint } from '../experimental/backup/config/googleOAuth';
 import { sanitizeEmail, sanitizeName } from '../utils/inputSanitizer';
+import { logError } from '../services/sentry';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -99,11 +100,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [awaitingPasswordReset, setAwaitingPasswordReset] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
+      })
+      .catch(e => {
+        const error = e instanceof Error ? e : new Error('Failed to get session');
+        logError(error, { context: 'getSession' });
+        setSession(null);
+        setUser(null);
+        setLoading(false);
+      });
 
     const {
       data: { subscription },
@@ -160,11 +169,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await runGoogleOAuth(true);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erro desconhecido';
+      const error = err instanceof Error ? err : new Error('Unknown Google auth error');
+      logError(error, { context: 'signInWithGoogle' });
+      const message = error.message;
       if (message.toLowerCase().includes('pkce')) {
         Alert.alert(
           'Erro no login com Google',
-          'Falha na validação de segurança (PKCE). Tente de novo: toque em Entrar com Google outra vez sem fechar o app no meio do processo.'
+          'Falha na validação de segurança. Tente de novo: toque em Entrar com Google outra vez sem fechar o app no meio do processo.'
         );
         return;
       }
@@ -181,8 +192,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await authorizeGoogleDriveDirect();
       return true;
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erro desconhecido';
-      Alert.alert('Erro ao conectar Drive', message);
+      const error = err instanceof Error ? err : new Error('Unknown Google Drive auth error');
+      logError(error, { context: 'reconnectGoogleForDrive' });
+      Alert.alert('Erro ao conectar Drive', error.message);
       return false;
     }
   }
@@ -192,7 +204,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email: sanitizeEmail(email),
       password,
     });
-    if (error) throw new Error(mapAuthError(error.message));
+    if (error) {
+      const authError = new Error(mapAuthError(error.message));
+      logError(authError, { context: 'signIn', email: sanitizeEmail(email) });
+      throw authError;
+    }
     // Não mexemos em setLoading aqui — o onAuthStateChange já faz isso.
   }
 
@@ -200,22 +216,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data, error } = await supabase.auth.signUp({
       email: sanitizeEmail(email),
       password,
-      options: { 
+      options: {
         emailRedirectTo: Linking.createURL('auth-confirmed'),
-        data: { 
-          full_name: sanitizeName(name) 
-        } 
+        data: {
+          full_name: sanitizeName(name)
+        }
       },
     });
-    if (error) throw new Error(mapAuthError(error.message));
+    if (error) {
+      const authError = new Error(mapAuthError(error.message));
+      logError(authError, { context: 'signUp', email: sanitizeEmail(email) });
+      throw authError;
+    }
     // Se o Supabase retornar session nula (confirmação de e-mail obrigatória),
     // não tentamos autenticar — o RegisterScreen exibirá a tela de confirmação.
     if (!data.session) return; // aguarda confirmação por e-mail
   }
 
   async function signOut() {
-    await clearStoredGoogleTokens();
-    await supabase.auth.signOut();
+    try {
+      await clearStoredGoogleTokens();
+      await supabase.auth.signOut();
+    } catch (e) {
+      const error = e instanceof Error ? e : new Error('Failed to sign out');
+      logError(error, { context: 'signOut' });
+      throw error;
+    }
   }
 
   const canChangePassword = useMemo(
@@ -229,12 +255,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data.avatar_url = params.avatarUrl ?? '';
     }
     const { error } = await supabase.auth.updateUser({ data });
-    if (error) throw new Error(mapAuthError(error.message));
+    if (error) {
+      const authError = new Error(mapAuthError(error.message));
+      logError(authError, { context: 'updateProfile' });
+      throw authError;
+    }
   }
 
   async function updatePassword(newPassword: string) {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
-    if (error) throw new Error(mapAuthError(error.message));
+    if (error) {
+      const authError = new Error(mapAuthError(error.message));
+      logError(authError, { context: 'updatePassword' });
+      throw authError;
+    }
   }
 
   return (

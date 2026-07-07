@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSession } from '../context/SessionContext';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { validatePassword, PASSWORD_MIN_LENGTH } from '../utils/passwordPolicy';
+import { logError } from '../services/sentry';
 
 export function ChangePasswordScreen() {
   const { canChangePassword, updatePassword } = useAuth();
@@ -50,7 +51,9 @@ export function ChangePasswordScreen() {
       setConfirm('');
       Alert.alert('Senha alterada', 'Na próxima vez, use a nova senha para entrar.');
     } catch (e) {
-      Alert.alert('Erro', e instanceof Error ? e.message : 'Não foi possível alterar a senha.');
+      const error = e instanceof Error ? e : new Error('Failed to change password');
+      logError(error, { context: 'changePassword' });
+      Alert.alert('Erro', 'Não foi possível alterar a senha. Tente novamente.');
     } finally {
       setSaving(false);
     }

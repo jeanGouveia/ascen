@@ -20,6 +20,7 @@ import { useAppTheme } from '../hooks/useAppTheme';
 import { C_light as C, R } from '../styles/theme';
 import { validatePassword, PASSWORD_MIN_LENGTH } from '../utils/passwordPolicy';
 import { sanitizeEmail, sanitizeName } from '../utils/inputSanitizer';
+import { logError } from '../services/sentry';
 
 function PasswordStrength({ password }: { password: string }) {
   if (!password) return null;
@@ -143,8 +144,10 @@ export function RegisterScreen({ onNavigateLogin }: Props) {
     try {
       await signUp(sanitizeEmail(email), password, sanitizeName(name));
       setDone(true); // Mostra tela de confirmação de e-mail
-    } catch (err: any) {
-      Alert.alert('Erro no cadastro', err.message);
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error('Unknown registration error');
+      logError(error, { context: 'handleRegister', email: sanitizeEmail(email) });
+      Alert.alert('Erro no cadastro', 'Não foi possível criar sua conta. Verifique os dados e tente novamente.');
       shake();
     } finally {
       setSubmitting(false);
@@ -155,8 +158,10 @@ export function RegisterScreen({ onNavigateLogin }: Props) {
     setGoogleLoading(true);
     try {
       await signInWithGoogle();
-    } catch (err: any) {
-      Alert.alert('Erro no login com Google', err.message);
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error('Unknown Google registration error');
+      logError(error, { context: 'handleGoogleRegister' });
+      Alert.alert('Erro no login com Google', 'Não foi possível entrar com Google. Tente novamente.');
     } finally {
       setGoogleLoading(false);
     }

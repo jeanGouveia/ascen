@@ -1,14 +1,21 @@
 import * as SecureStore from 'expo-secure-store';
 import type { Session } from '@supabase/supabase-js';
+import { logError } from '../../../services/sentry';
 
 const DIRECT_ACCESS_KEY = 'ascen_google_direct_access';
 const DIRECT_REFRESH_KEY = 'ascen_google_direct_refresh';
 
 /** Token do Drive vem só do OAuth direto (não do Supabase). */
 export async function persistDirectGoogleTokens(accessToken: string, refreshToken?: string): Promise<void> {
-  await SecureStore.setItemAsync(DIRECT_ACCESS_KEY, accessToken);
-  if (refreshToken) {
-    await SecureStore.setItemAsync(DIRECT_REFRESH_KEY, refreshToken);
+  try {
+    await SecureStore.setItemAsync(DIRECT_ACCESS_KEY, accessToken);
+    if (refreshToken) {
+      await SecureStore.setItemAsync(DIRECT_REFRESH_KEY, refreshToken);
+    }
+  } catch (e) {
+    const error = e instanceof Error ? e : new Error('Failed to persist Google tokens');
+    logError(error, { context: 'persistDirectGoogleTokens' });
+    throw error;
   }
 }
 
@@ -18,12 +25,23 @@ export async function persistGoogleTokensFromSession(_session: Session | null): 
 }
 
 export async function getStoredGoogleAccessToken(): Promise<string | null> {
-  return SecureStore.getItemAsync(DIRECT_ACCESS_KEY);
+  try {
+    return await SecureStore.getItemAsync(DIRECT_ACCESS_KEY);
+  } catch (e) {
+    const error = e instanceof Error ? e : new Error('Failed to get Google access token');
+    logError(error, { context: 'getStoredGoogleAccessToken' });
+    return null;
+  }
 }
 
 export async function clearStoredGoogleTokens(): Promise<void> {
-  await SecureStore.deleteItemAsync(DIRECT_ACCESS_KEY);
-  await SecureStore.deleteItemAsync(DIRECT_REFRESH_KEY);
+  try {
+    await SecureStore.deleteItemAsync(DIRECT_ACCESS_KEY);
+    await SecureStore.deleteItemAsync(DIRECT_REFRESH_KEY);
+  } catch (e) {
+    const error = e instanceof Error ? e : new Error('Failed to clear Google tokens');
+    logError(error, { context: 'clearStoredGoogleTokens' });
+  }
 }
 
 /** Testa o token chamando a API do Drive (mais confiável que tokeninfo). */
@@ -34,7 +52,9 @@ export async function isGoogleAccessTokenValid(token: string): Promise<boolean> 
       { headers: { Authorization: `Bearer ${token}` } }
     );
     return res.ok || res.status === 404;
-  } catch {
+  } catch (e) {
+    const error = e instanceof Error ? e : new Error('Failed to validate Google access token');
+    logError(error, { context: 'isGoogleAccessTokenValid' });
     return false;
   }
 }

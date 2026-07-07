@@ -1,5 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 import * as Crypto from 'expo-crypto';
+import { logError } from '../../../services/sentry';
 
 const VERIFY_PREFIX = 'ascen_backup_verify_';
 const CACHED_PREFIX = 'ascen_backup_phrase_';
@@ -27,13 +28,19 @@ export async function setBackupPassphrase(userId: string, passphrase: string): P
   if (trimmed.length < 8) {
     throw new Error('A senha de backup deve ter pelo menos 8 caracteres.');
   }
-  const digest = await Crypto.digestStringAsync(
-    Crypto.CryptoDigestAlgorithm.SHA256,
-    `${userId}:${trimmed}`,
-    { encoding: Crypto.CryptoEncoding.HEX }
-  );
-  await SecureStore.setItemAsync(verifyKey(userId), digest);
-  // NÃO armazenar a passphrase em texto plano (LGPD Art. 46).
+  try {
+    const digest = await Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      `${userId}:${trimmed}`,
+      { encoding: Crypto.CryptoEncoding.HEX }
+    );
+    await SecureStore.setItemAsync(verifyKey(userId), digest);
+    // NÃO armazenar a passphrase em texto plano (LGPD Art. 46).
+  } catch (e) {
+    const error = e instanceof Error ? e : new Error('Failed to set backup passphrase');
+    logError(error, { context: 'setBackupPassphrase', userId });
+    throw error;
+  }
 }
 
 export async function verifyBackupPassphrase(userId: string, passphrase: string): Promise<boolean> {

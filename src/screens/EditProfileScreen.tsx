@@ -19,6 +19,7 @@ import { useAppTheme } from '../hooks/useAppTheme';
 import { Card } from '../components/Shared';
 import { saveAvatarFromPickerUri, removeLocalAvatar } from '../services/localAvatar';
 import { sanitizeName } from '../utils/inputSanitizer';
+import { logError } from '../services/sentry';
 
 function isLegacyRemoteAvatar(url?: string): boolean {
   return Boolean(url && (url.startsWith('http://') || url.startsWith('https://')));
@@ -83,7 +84,9 @@ export function EditProfileScreen() {
       }
       Alert.alert('Perfil atualizado', 'Suas alterações foram salvas no aparelho.');
     } catch (e) {
-      Alert.alert('Erro', e instanceof Error ? e.message : 'Não foi possível salvar.');
+      const error = e instanceof Error ? e : new Error('Failed to save profile');
+      logError(error, { context: 'handleSaveProfile' });
+      Alert.alert('Erro', 'Não foi possível salvar. Tente novamente.');
     } finally {
       setSaving(false);
     }
@@ -103,7 +106,9 @@ export function EditProfileScreen() {
             await refreshLocalAvatar();
             setLocalPhotoUri(null);
           } catch (e) {
-            Alert.alert('Erro', e instanceof Error ? e.message : 'Não foi possível remover.');
+            const error = e instanceof Error ? e : new Error('Failed to remove photo');
+            logError(error, { context: 'handleRemovePhoto' });
+            Alert.alert('Erro', 'Não foi possível remover. Tente novamente.');
           }
         },
       },
