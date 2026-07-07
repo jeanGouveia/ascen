@@ -11,7 +11,6 @@ interface SessionContextType {
   touch: () => void;
   isLocked: boolean;
   setCriticalFlow: (active: boolean) => void;
-  setUserInteracting: (active: boolean) => void;
   setSubmitting: (active: boolean) => void;
 }
 
@@ -114,12 +113,6 @@ export function SessionProvider({ children }: Props) {
     }
   }, []);
 
-  const setUserInteracting = useCallback((active: boolean) => {
-    if (managerRef.current) {
-      managerRef.current.setUserInteracting(active);
-    }
-  }, []);
-
   const setSubmitting = useCallback((active: boolean) => {
     if (managerRef.current) {
       managerRef.current.setSubmitting(active);
@@ -136,7 +129,6 @@ export function SessionProvider({ children }: Props) {
     touch,
     isLocked,
     setCriticalFlow,
-    setUserInteracting,
     setSubmitting,
   };
 

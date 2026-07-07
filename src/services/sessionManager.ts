@@ -102,18 +102,6 @@ export class SessionManager {
   }
 
   /**
-   * Define se o usuário está interagindo ativamente (ex: digitando, scrollando).
-   * OBSOLETO: A interação agora é derivada automaticamente de lastInteraction.
-   * Este método não faz nada, mantido apenas para compatibilidade.
-   */
-  setUserInteracting(_active: boolean): void {
-    // Interagindo agora é derivado de lastInteraction - método obsoleto
-    if (TEST_MODE) {
-      console.log('[SESSION] setUserInteracting is deprecated - interaction now derived from lastInteraction');
-    }
-  }
-
-  /**
    * Define se uma ação crítica está em andamento (ex: submit, loading).
    * Quando ativo, o lock é inibido.
    */

@@ -13,17 +13,14 @@ export function SessionLockScreen() {
       try {
         const hasHardware = await LocalAuthentication.hasHardwareAsync();
         if (!hasHardware) {
-          console.log('[LOCK] biometric hardware not available');
           return;
         }
 
         const isEnrolled = await LocalAuthentication.isEnrolledAsync();
         if (!isEnrolled) {
-          console.log('[LOCK] no biometric enrollment found');
           return;
         }
 
-        console.log('[LOCK] attempting biometric unlock');
         const result = await LocalAuthentication.authenticateAsync({
           promptMessage: 'Desbloquear sessão',
           fallbackLabel: 'Usar senha',
@@ -31,13 +28,10 @@ export function SessionLockScreen() {
         });
 
         if (result.success) {
-          console.log('[LOCK] biometric unlock successful');
           unlock();
-        } else {
-          console.log('[LOCK] biometric unlock failed or cancelled');
         }
       } catch (error) {
-        console.log('[LOCK] biometric unlock error:', error);
+        // Biometric unlock failed silently - user can still use password
       }
     };
 

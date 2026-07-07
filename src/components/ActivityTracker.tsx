@@ -8,14 +8,12 @@ import { useSession } from '../context/SessionContext';
  * seja registrada como atividade.
  */
 export function ActivityTracker({ children }: { children: React.ReactNode }) {
-  const { touch, setUserInteracting } = useSession();
+  const { touch } = useSession();
 
   return (
     <TouchableWithoutFeedback
       onPress={() => {
         touch();
-        setUserInteracting(true);
-        setTimeout(() => setUserInteracting(false), 1000);
       }}
       accessible={false}
     >
