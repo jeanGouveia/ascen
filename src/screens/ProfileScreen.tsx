@@ -115,6 +115,7 @@ export function ProfileScreen() {
       title: 'SUPORTE',
       items: [
         { icon: '❓', label: 'Ajuda', sub: 'Como usar o Ascen', route: 'Ajuda' },
+        { icon: 'ℹ️', label: 'Sobre', sub: 'Versão e informações legais', route: 'Sobre' },
         {
           icon: '⭐',
           label: 'Avaliar o app',
