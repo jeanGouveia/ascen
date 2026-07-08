@@ -69,7 +69,8 @@ export function TransactionsScreen() {
       setRefreshing(false);
     }
   };
-
+  const currentYear = new Date().getFullYear();
+  
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top']}>
       <ScrollView
@@ -84,7 +85,7 @@ export function TransactionsScreen() {
         }
       >
         <Text style={[s.pageTitle, { marginBottom: 4 }]}>Lançamentos</Text>
-        <Text style={s.pageSubtitle}>{currentMonthName()} de 2026</Text>
+        <Text style={s.pageSubtitle}>{currentMonthName()} de {currentYear}</Text>
 
         <Text style={[s.formLabel, { marginTop: 16, marginBottom: 8 }]}>RECORRÊNCIAS</Text>
         <Card style={{ marginBottom: 14 }}>
