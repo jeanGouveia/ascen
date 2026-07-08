@@ -59,7 +59,7 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [user, localDataReady, goals.length]);
+  }, [user, localDataReady]);
 
   useEffect(() => {
     syncLog('GOALS_CONTEXT', `dataRevision=${dataRevision}`, 'reload()');

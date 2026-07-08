@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState, useMemo } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { logError } from '../services/sentry';
 
@@ -44,8 +44,13 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       });
   }, []);
 
+  const value = useMemo(
+    () => ({ shouldShow, isReady, startOnboarding, finishOnboarding }),
+    [shouldShow, isReady, startOnboarding, finishOnboarding]
+  );
+
   return (
-    <OnboardingContext.Provider value={{ shouldShow, isReady, startOnboarding, finishOnboarding }}>
+    <OnboardingContext.Provider value={value}>
       {children}
     </OnboardingContext.Provider>
   );

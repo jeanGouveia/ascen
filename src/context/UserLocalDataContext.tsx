@@ -4,6 +4,7 @@ import React, {
   useContext,
   useEffect,
   useState,
+  useMemo,
 } from 'react';
 import { ActivityIndicator, Platform, Text, TouchableOpacity, View } from 'react-native';
 import { useAuth } from './AuthContext';
@@ -280,28 +281,52 @@ export function UserLocalDataProvider({ children }: { children: React.ReactNode 
 
   const canUseGoogleDrive = isGoogleDriveConfigured();
 
-  const value: UserLocalDataContextType = {
-    localDataReady: readyState === true,
-    localDataError,
-    retryInit,
-    dataRevision,
-    bumpDataRevision,
-    notifyDatabaseChanged,
-    localAvatarUri,
-    refreshLocalAvatar,
-    lastSnapshotUploadAt,
-    refreshSnapshotMeta,
-    backupPassphraseReady,
-    refreshBackupPassphraseState,
-    configureBackupPassphrase,
-    backupStorageTarget,
-    setStorageTarget,
-    canUseGoogleDrive,
-    googleDriveReady,
-    refreshGoogleDriveState,
-    runCloudBackup,
-    runCloudRestore,
-  };
+  const value: UserLocalDataContextType = useMemo(
+    () => ({
+      localDataReady: readyState === true,
+      localDataError,
+      retryInit,
+      dataRevision,
+      bumpDataRevision,
+      notifyDatabaseChanged,
+      localAvatarUri,
+      refreshLocalAvatar,
+      lastSnapshotUploadAt,
+      refreshSnapshotMeta,
+      backupPassphraseReady,
+      refreshBackupPassphraseState,
+      configureBackupPassphrase,
+      backupStorageTarget,
+      setStorageTarget,
+      canUseGoogleDrive,
+      googleDriveReady,
+      refreshGoogleDriveState,
+      runCloudBackup,
+      runCloudRestore,
+    }),
+    [
+      readyState,
+      localDataError,
+      retryInit,
+      dataRevision,
+      bumpDataRevision,
+      notifyDatabaseChanged,
+      localAvatarUri,
+      refreshLocalAvatar,
+      lastSnapshotUploadAt,
+      refreshSnapshotMeta,
+      backupPassphraseReady,
+      refreshBackupPassphraseState,
+      configureBackupPassphrase,
+      backupStorageTarget,
+      setStorageTarget,
+      canUseGoogleDrive,
+      googleDriveReady,
+      refreshGoogleDriveState,
+      runCloudBackup,
+      runCloudRestore,
+    ]
+  );
 
   if (readyState === null) {
     const inner = localDataError ? (

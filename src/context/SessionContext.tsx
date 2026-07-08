@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { SessionManager } from '../services/sessionManager';
 import { useAuth } from './AuthContext';
@@ -121,16 +121,19 @@ export function SessionProvider({ children }: Props) {
 
   const isLocked = locked;
 
-  const value: SessionContextType = {
-    locked,
-    lastActivity,
-    lock,
-    unlock,
-    touch,
-    isLocked,
-    setCriticalFlow,
-    setSubmitting,
-  };
+  const value: SessionContextType = useMemo(
+    () => ({
+      locked,
+      lastActivity,
+      lock,
+      unlock,
+      touch,
+      isLocked,
+      setCriticalFlow,
+      setSubmitting,
+    }),
+    [locked, lastActivity, lock, unlock, touch, isLocked, setCriticalFlow, setSubmitting]
+  );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

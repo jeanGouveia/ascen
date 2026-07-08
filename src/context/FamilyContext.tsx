@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 import { useUserLocal } from './UserLocalDataContext';
 import {
@@ -77,8 +77,13 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
     })();
   }, [localDataReady]);
 
+  const value = useMemo(
+    () => ({ familyId, role, joinCode, loading, refreshFamily, joinByCode }),
+    [familyId, role, joinCode, loading, refreshFamily, joinByCode]
+  );
+
   return (
-    <FamilyContext.Provider value={{ familyId, role, joinCode, loading, refreshFamily, joinByCode }}>
+    <FamilyContext.Provider value={value}>
       {children}
     </FamilyContext.Provider>
   );

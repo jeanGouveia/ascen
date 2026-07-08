@@ -2,7 +2,7 @@
  * Regras recorrentes no SQLite local. Confirmação do mês atualiza last_confirmed e cria transação via AppContext.
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
 import { Alert } from 'react-native';
 import { useAuth } from './AuthContext';
 import { useUserLocal } from './UserLocalDataContext';
@@ -285,10 +285,13 @@ export const RecurringProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     [user, localDataReady, fetchTransactions]
   );
 
+  const value = useMemo(
+    () => ({ rules, loading, addRule, updateRule, deleteRule, toggleActive, confirmRule, reload }),
+    [rules, loading, addRule, updateRule, deleteRule, toggleActive, confirmRule, reload]
+  );
+
   return (
-    <RecurringContext.Provider
-      value={{ rules, loading, addRule, updateRule, deleteRule, toggleActive, confirmRule, reload }}
-    >
+    <RecurringContext.Provider value={value}>
       {children}
     </RecurringContext.Provider>
   );

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
 import { Alert } from 'react-native';
 import { useAuth } from './AuthContext';
 import { useUserLocal } from './UserLocalDataContext';
@@ -109,20 +109,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setModalState(prev => ({ ...prev, visible: false }));
   }, []);
 
+  const value = useMemo(
+    () => ({
+      transactions,
+      loading,
+      addTransaction,
+      addTransactions,
+      deleteTransaction,
+      openTxModal,
+      closeTxModal,
+      modalState,
+      fetchTransactions,
+    }),
+    [transactions, loading, addTransaction, addTransactions, deleteTransaction, openTxModal, closeTxModal, modalState, fetchTransactions]
+  );
+
   return (
-    <AppContext.Provider
-      value={{
-        transactions,
-        loading,
-        addTransaction,
-        addTransactions,
-        deleteTransaction,
-        openTxModal,
-        closeTxModal,
-        modalState,
-        fetchTransactions,
-      }}
-    >
+    <AppContext.Provider value={value}>
       {children}
     </AppContext.Provider>
   );

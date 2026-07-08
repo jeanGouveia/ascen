@@ -271,23 +271,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const value = useMemo(
+    () => ({
+      user,
+      session,
+      loading,
+      canChangePassword,
+      awaitingPasswordReset,
+      signIn,
+      signUp,
+      signInWithGoogle,
+      reconnectGoogleForDrive,
+      signOut,
+      updateProfile,
+      updatePassword,
+    }),
+    [user, session, loading, canChangePassword, awaitingPasswordReset]
+  );
+
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        session,
-        loading,
-        canChangePassword,
-        awaitingPasswordReset,
-        signIn,
-        signUp,
-        signInWithGoogle,
-        reconnectGoogleForDrive,
-        signOut,
-        updateProfile,
-        updatePassword,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
 import { Alert } from 'react-native';
 import { useAuth } from './AuthContext';
 import { useUserLocal } from './UserLocalDataContext';
@@ -132,10 +132,13 @@ export const CategoryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     [categories]
   );
 
+  const value = useMemo(
+    () => ({ categories, loading, addCategory, updateCategory, deleteCategory, getCategoryByName }),
+    [categories, loading, addCategory, updateCategory, deleteCategory, getCategoryByName]
+  );
+
   return (
-    <CategoryContext.Provider
-      value={{ categories, loading, addCategory, updateCategory, deleteCategory, getCategoryByName }}
-    >
+    <CategoryContext.Provider value={value}>
       {children}
     </CategoryContext.Provider>
   );
