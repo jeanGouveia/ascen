@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useSession } from '../context/SessionContext';
 import { useAppTheme } from '../hooks/useAppTheme';
@@ -7,6 +7,7 @@ import { useAppTheme } from '../hooks/useAppTheme';
 export function SessionLockScreen() {
   const { unlock } = useSession();
   const { C } = useAppTheme();
+  const [unlocking, setUnlocking] = useState(false);
 
   useEffect(() => {
     const attemptBiometricUnlock = async () => {
@@ -28,6 +29,7 @@ export function SessionLockScreen() {
         });
 
         if (result.success) {
+          setUnlocking(true);
           unlock();
         }
       } catch (error) {
@@ -49,10 +51,18 @@ export function SessionLockScreen() {
           Por segurança, sua sessão foi bloqueada devido à inatividade.
         </Text>
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: C.primary }]}
-          onPress={unlock}
+          style={[styles.button, { backgroundColor: C.primary, opacity: unlocking ? 0.7 : 1 }]}
+          onPress={() => {
+            setUnlocking(true);
+            unlock();
+          }}
+          disabled={unlocking}
         >
-          <Text style={styles.buttonText}>Desbloquear</Text>
+          {unlocking ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Desbloquear</Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>

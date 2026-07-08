@@ -226,11 +226,13 @@ export function DeleteAccountScreen() {
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => void handleDeleteAccount()}
+            disabled={busy}
             style={[
               s.modalBtn,
               {
                 backgroundColor: C.danger,
                 marginBottom: 12,
+                opacity: busy ? 0.7 : 1,
               },
             ]}
           >

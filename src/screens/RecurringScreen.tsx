@@ -20,7 +20,7 @@
  * - Geração de lançamentos via AppContext.addTransaction
  */
 
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -470,6 +470,7 @@ export function RecurringScreen() {
   const [editingRule, setEditingRule]   = useState<RecurringRule | null>(null);
   const [filterType, setFilterType]     = useState<'all' | 'income' | 'expense'>('all');
   const [confirmedId, setConfirmedId]   = useState<string | null>(null);
+  const isMounted = useRef(true);
 
   // Resumo do mês
   const activeRules  = rules.filter(r => r.active);
@@ -501,7 +502,11 @@ export function RecurringScreen() {
             onPress: async () => {
               await confirmRule(rule);
               setConfirmedId(rule.id);
-              setTimeout(() => setConfirmedId(null), 2000);
+              setTimeout(() => {
+                if (isMounted.current) {
+                  setConfirmedId(null);
+                }
+              }, 2000);
             },
           },
         ]
@@ -537,6 +542,14 @@ export function RecurringScreen() {
     setFormVisible(false);
     setEditingRule(null);
   };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   const FILTERS = [
     { key: 'all'     as const, label: 'Todos',      color: C.primary },

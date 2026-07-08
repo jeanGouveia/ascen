@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -48,6 +48,7 @@ const emptyForm = (): GoalForm => ({
 
 export function GoalsScreen() {
   const { C, s } = useAppTheme();
+  const isMounted = useRef(true);
   const { goals, loading, addGoal, updateGoal, deleteGoal, depositToGoal } = useGoals();
   const { user } = useAuth();
   const { touch, setCriticalFlow, setSubmitting } = useSession();
@@ -95,6 +96,14 @@ export function GoalsScreen() {
       touch();
     }, [touch])
   );
+
+  // Cleanup on unmount
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   const openCreate = () => {
     setEditingId(null);
@@ -170,7 +179,13 @@ export function GoalsScreen() {
     const name = depositTarget.name;
     setDepositTarget(null);
     setDepositAmount('');
-    if (completed) setTimeout(() => Alert.alert('🎉 Parabéns!', `Você atingiu a meta "${name}"!`), 300);
+    if (completed) {
+      setTimeout(() => {
+        if (isMounted.current) {
+          Alert.alert('🎉 Parabéns!', `Você atingiu a meta "${name}"!`);
+        }
+      }, 300);
+    }
   };
 
   const onRefresh = async () => {
