@@ -26,7 +26,7 @@ export const useGoals = () => useContext(GoalsContext);
 
 export function GoalsProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  const { localDataReady, dataRevision } = useUserLocal();
+  const { localDataReady, onGoalsChanged } = useUserLocal();
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -70,9 +70,9 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
   }, [user, localDataReady]);
 
   useEffect(() => {
-    syncLog('GOALS_CONTEXT', `dataRevision=${dataRevision}`, 'reload()');
+    syncLog('GOALS_CONTEXT', 'reload()');
     void reload();
-  }, [reload, dataRevision]);
+  }, [reload, onGoalsChanged]);
 
   useFocusEffect(
     React.useCallback(() => {

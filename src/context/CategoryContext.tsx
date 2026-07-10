@@ -45,7 +45,7 @@ function mergeCategories(defaults: Category[], fromDb: Category[]): Category[] {
 
 export const CategoryProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const { localDataReady, dataRevision } = useUserLocal();
+  const { localDataReady, onCategoriesChanged } = useUserLocal();
   const [customCategories, setCustomCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -79,7 +79,7 @@ export const CategoryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     void fetchCategories();
-  }, [fetchCategories, dataRevision]);
+  }, [fetchCategories, onCategoriesChanged]);
 
   const addCategory = useCallback(
     async (data: Omit<Category, 'id' | 'isDefault'>) => {

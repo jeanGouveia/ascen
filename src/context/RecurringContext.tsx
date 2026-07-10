@@ -91,7 +91,7 @@ function mapRow(row: localDb.LocalRecurringRow): RecurringRule {
 
 export const RecurringProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const { localDataReady, dataRevision } = useUserLocal();
+  const { localDataReady, onRecurringChanged } = useUserLocal();
   const { addTransaction, fetchTransactions } = useApp();
   const { notificationsEnabled, notifyDayOf, notifyOneDayBefore, notifyFiveDaysBefore } = usePreferences();
   const [rules, setRules] = useState<RecurringRule[]>([]);
@@ -137,7 +137,7 @@ export const RecurringProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   useEffect(() => {
     void reload();
-  }, [reload, dataRevision]);
+  }, [reload, onRecurringChanged]);
 
   const addRule = useCallback(
     async (data: RecurringInput) => {

@@ -46,6 +46,10 @@ interface UserLocalDataContextType {
   dataRevision: number;
   bumpDataRevision: () => void;
   notifyDatabaseChanged: () => void;
+  onTransactionsChanged: () => void;
+  onCategoriesChanged: () => void;
+  onRecurringChanged: () => void;
+  onGoalsChanged: () => void;
   localAvatarUri: string | null;
   refreshLocalAvatar: () => Promise<void>;
   lastSnapshotUploadAt: string | null;
@@ -90,11 +94,36 @@ export function UserLocalDataProvider({ children }: { children: React.ReactNode 
     bumpDataRevision();
   }, [bumpDataRevision, dataRevision]);
 
+  const onTransactionsChanged = useCallback(() => {
+    console.log('[PERF] onTransactionsChanged');
+  }, []);
+
+  const onCategoriesChanged = useCallback(() => {
+    console.log('[PERF] onCategoriesChanged');
+  }, []);
+
+  const onRecurringChanged = useCallback(() => {
+    console.log('[PERF] onRecurringChanged');
+  }, []);
+
+  const onGoalsChanged = useCallback(() => {
+    console.log('[PERF] onGoalsChanged');
+  }, []);
+
   useEffect(() => {
     const handleSyncCompletion = (result: import('../services/sync/syncEngine').SyncResult) => {
       syncLog('DATABASE_CHANGED_CALLBACK', `goals=${result.changedEntities.goals}`, `categories=${result.changedEntities.categories}`, `transactions=${result.changedEntities.transactions}`, `recurring=${result.changedEntities.recurring}`);
-      if (hasDatabaseChanges(result)) {
-        notifyDatabaseChanged();
+      if (result.changedEntities.transactions) {
+        onTransactionsChanged();
+      }
+      if (result.changedEntities.categories) {
+        onCategoriesChanged();
+      }
+      if (result.changedEntities.recurring) {
+        onRecurringChanged();
+      }
+      if (result.changedEntities.goals) {
+        onGoalsChanged();
       }
     };
 
@@ -103,7 +132,7 @@ export function UserLocalDataProvider({ children }: { children: React.ReactNode 
     return () => {
       unregisterSyncCompletionCallback();
     };
-  }, [notifyDatabaseChanged]);
+  }, [onTransactionsChanged, onCategoriesChanged, onRecurringChanged, onGoalsChanged]);
 
   const refreshLocalAvatar = useCallback(async () => {
     if (!user?.id) {
@@ -296,6 +325,10 @@ export function UserLocalDataProvider({ children }: { children: React.ReactNode 
       dataRevision,
       bumpDataRevision,
       notifyDatabaseChanged,
+      onTransactionsChanged,
+      onCategoriesChanged,
+      onRecurringChanged,
+      onGoalsChanged,
       localAvatarUri,
       refreshLocalAvatar,
       lastSnapshotUploadAt,
@@ -318,6 +351,10 @@ export function UserLocalDataProvider({ children }: { children: React.ReactNode 
       dataRevision,
       bumpDataRevision,
       notifyDatabaseChanged,
+      onTransactionsChanged,
+      onCategoriesChanged,
+      onRecurringChanged,
+      onGoalsChanged,
       localAvatarUri,
       refreshLocalAvatar,
       lastSnapshotUploadAt,

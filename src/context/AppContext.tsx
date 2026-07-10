@@ -26,7 +26,7 @@ export const useApp = () => useContext(AppContext);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const { localDataReady, dataRevision } = useUserLocal();
+  const { localDataReady, onTransactionsChanged } = useUserLocal();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalState, setModalState] = useState<TxModalState>({ visible: false, defaultType: 'expense' });
@@ -61,7 +61,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setLoading(true);
     void fetchTransactions();
-  }, [user, localDataReady, dataRevision, fetchTransactions]);
+  }, [user, localDataReady, fetchTransactions]);
+
+  useEffect(() => {
+    if (!user || !localDataReady) return;
+    void fetchTransactions();
+  }, [onTransactionsChanged, user, localDataReady, fetchTransactions]);
 
   const addTransaction = useCallback(async (data: Omit<Transaction, 'id'>) => {
     syncLog('[GATE] AppContext addTransaction CALLED', `userId=${user?.id ?? 'null'}`, `localDataReady=${localDataReady}`);
