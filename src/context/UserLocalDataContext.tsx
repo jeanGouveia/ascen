@@ -79,9 +79,13 @@ export function UserLocalDataProvider({ children }: { children: React.ReactNode 
   const [backupStorageTarget, setBackupStorageTargetState] = useState<BackupStorageTarget>('supabase');
   const [googleDriveReady, setGoogleDriveReady] = useState(false);
 
-  const bumpDataRevision = useCallback(() => setDataRevision(r => r + 1), []);
+  const bumpDataRevision = useCallback(() => {
+    console.log('[PERF] bumpDataRevision');
+    setDataRevision(r => r + 1);
+  }, []);
 
   const notifyDatabaseChanged = useCallback(() => {
+    console.log('[PERF] notifyDatabaseChanged');
     syncLog('DATABASE_CHANGED', `before=${dataRevision}`, `after=${dataRevision + 1}`);
     bumpDataRevision();
   }, [bumpDataRevision, dataRevision]);
@@ -168,11 +172,14 @@ export function UserLocalDataProvider({ children }: { children: React.ReactNode 
         if (cancelled) return;
 
         try {
+          syncLog('[GATE] initialSync CALLED', `userId=${user.id}`);
           await initialSync(user.id);
+          syncLog('[GATE] initialSync COMPLETED', `userId=${user.id}`);
           const pending = await countPendingOutbox();
           useSyncStore.getState().setPendingCount(pending);
           useSyncStore.getState().setLastSyncAt(new Date().toISOString());
         } catch (syncErr) {
+          syncLog('[GATE] initialSync FAILED', `userId=${user.id}`, `error=${syncErr instanceof Error ? syncErr.message : String(syncErr)}`);
           logger.warn('Sync inicial:', syncErr instanceof Error ? syncErr.message : syncErr);
           useSyncStore.getState().setStatus('offline');
         }

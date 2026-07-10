@@ -116,9 +116,11 @@ async function runPullWithRetry(familyId: string, maxAttempts = 3): Promise<{
 
   while (attempt < maxAttempts) {
     attempt++;
+    const attemptStart = Date.now();
     try {
       syncLog('[SYNC] pull attempt', `attempt=${attempt}/${maxAttempts}`, `familyId=${familyId}`);
       const result = await pullRemoteChanges(familyId);
+      console.log('[PERF] runPullWithRetry attempt', `${attempt}/${maxAttempts}`, `(${Date.now() - attemptStart}ms)`);
       syncLog('[SYNC] pull success', `attempt=${attempt}/${maxAttempts}`);
       return result;
     } catch (e) {
@@ -127,6 +129,7 @@ async function runPullWithRetry(familyId: string, maxAttempts = 3): Promise<{
       syncLog('[SYNC] pull failed', `attempt=${attempt}/${maxAttempts}`, `error=${lastError.message}`);
 
       if (attempt < maxAttempts) {
+        console.log('[PERF] runPullWithRetry attempt', `${attempt}/${maxAttempts}`, `failed`, `(${Date.now() - attemptStart}ms)`);
         const delay = BASE_RETRY_MS * 2 ** (attempt - 1);
         syncLog('[SYNC] pull retry', `delayMs=${delay}`, `nextAttempt=${attempt + 1}/${maxAttempts}`);
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -159,7 +162,9 @@ export async function pullRemoteChanges(familyId: string): Promise<{
   recurring: boolean;
   transactions: boolean;
 }> {
+  syncLog('[GATE] pullRemoteChanges CALLED', `familyId=${familyId}`);
   const pullStart = Date.now();
+  console.log('[PERF] pullRemoteChanges START');
   await ensurePullCursorForFamily(familyId);
   const since = await getLastPullAt();
   syncLog('[SYNC] pull started', `cursor=${since}`, `familyId=${familyId}`);
@@ -173,6 +178,7 @@ export async function pullRemoteChanges(familyId: string): Promise<{
 
   await setLastPullAt(new Date().toISOString());
   syncLog('[SYNC] pull completed', `durationMs=${Date.now() - pullStart}`, `categories=${categories}`, `transactions=${transactions}`, `recurring=${recurring}`, `goals=${goals}`);
+  console.log('[PERF] pullRemoteChanges END', `(${Date.now() - pullStart}ms)`);
 
   return { categories, transactions, recurring, goals };
 }
@@ -216,6 +222,8 @@ async function pushOutboxItem(
 }
 
 export async function pushLocalChanges(userId: string | null): Promise<void> {
+  const pushStart = Date.now();
+  console.log('[PERF] pushLocalChanges START');
   const familyId = await getLocalFamilyId();
   if (!familyId) {
     syncLog('[SYNC] pushLocalChanges aborted', 'reason=noFamilyId');
@@ -258,11 +266,13 @@ export async function pushLocalChanges(userId: string | null): Promise<void> {
       if (isOnlineError(msg)) throw e;
     }
   }
+  console.log('[PERF] pushLocalChanges END', `(${Date.now() - pushStart}ms)`);
 }
 
 export async function runFullSync(userId: string | null, origin?: SyncReason): Promise<SyncResult> {
   const syncStart = Date.now();
   const resolvedOrigin = inferRunFullSyncOrigin(origin);
+  console.log('[PERF] runFullSync START');
   syncLog(
     'runFullSync()',
     'phase=start',
@@ -271,6 +281,7 @@ export async function runFullSync(userId: string | null, origin?: SyncReason): P
   );
 
   if (syncInFlight) {
+    syncLog('[GATE] runFullSync BLOCKED', `origin=${resolvedOrigin}`, 'reason=syncInFlight');
     syncLog('runFullSync()', 'phase=aborted', `origin=${resolvedOrigin}`, 'reason=syncInFlight');
     return {
       success: false,
@@ -280,6 +291,7 @@ export async function runFullSync(userId: string | null, origin?: SyncReason): P
   }
   const familyId = await getLocalFamilyId();
   if (!familyId) {
+    syncLog('[GATE] runFullSync BLOCKED', `origin=${resolvedOrigin}`, 'reason=noFamilyId');
     syncLog('runFullSync()', 'phase=aborted', `origin=${resolvedOrigin}`, 'reason=noFamilyId');
     return {
       success: false,
@@ -287,6 +299,7 @@ export async function runFullSync(userId: string | null, origin?: SyncReason): P
       durationMs: Date.now() - syncStart,
     };
   }
+  syncLog('[GATE] runFullSync PASSED', `origin=${resolvedOrigin}`, `familyId=${familyId}`);
 
   syncInFlight = true;
   const store = useSyncStore.getState();
@@ -316,6 +329,7 @@ export async function runFullSync(userId: string | null, origin?: SyncReason): P
       `durationMs=${Date.now() - syncStart}`,
       'result=ok',
     );
+    console.log('[PERF] runFullSync END', `(${Date.now() - syncStart}ms)`);
     const result: SyncResult = {
       success: true,
       changedEntities,
@@ -360,6 +374,7 @@ export async function runFullSync(userId: string | null, origin?: SyncReason): P
 export async function runPullOnly(userId: string | null, origin?: SyncReason): Promise<SyncResult> {
   const syncStart = Date.now();
   const resolvedOrigin = inferRunFullSyncOrigin(origin);
+  console.log('[PERF] runPullOnly START');
   syncLog(
     'runPullOnly()',
     'phase=start',
@@ -368,6 +383,7 @@ export async function runPullOnly(userId: string | null, origin?: SyncReason): P
   );
 
   if (syncInFlight) {
+    syncLog('[GATE] runPullOnly BLOCKED', `origin=${resolvedOrigin}`, 'reason=syncInFlight');
     syncLog('runPullOnly()', 'phase=aborted', `origin=${resolvedOrigin}`, 'reason=syncInFlight');
     return {
       success: false,
@@ -377,6 +393,7 @@ export async function runPullOnly(userId: string | null, origin?: SyncReason): P
   }
   const familyId = await getLocalFamilyId();
   if (!familyId) {
+    syncLog('[GATE] runPullOnly BLOCKED', `origin=${resolvedOrigin}`, 'reason=noFamilyId');
     syncLog('runPullOnly()', 'phase=aborted', `origin=${resolvedOrigin}`, 'reason=noFamilyId');
     return {
       success: false,
@@ -386,6 +403,7 @@ export async function runPullOnly(userId: string | null, origin?: SyncReason): P
   }
 
   if (!(await shouldRunPull())) {
+    syncLog('[GATE] runPullOnly BLOCKED', `origin=${resolvedOrigin}`, 'reason=throttled');
     syncLog('runPullOnly()', 'phase=skipped', `origin=${resolvedOrigin}`, 'reason=throttled');
     return {
       success: true,
@@ -393,6 +411,7 @@ export async function runPullOnly(userId: string | null, origin?: SyncReason): P
       durationMs: Date.now() - syncStart,
     };
   }
+  syncLog('[GATE] runPullOnly PASSED', `origin=${resolvedOrigin}`, `familyId=${familyId}`);
 
   syncInFlight = true;
   const store = useSyncStore.getState();
@@ -410,6 +429,7 @@ export async function runPullOnly(userId: string | null, origin?: SyncReason): P
       `durationMs=${Date.now() - syncStart}`,
       'result=ok',
     );
+    console.log('[PERF] runPullOnly END', `(${Date.now() - syncStart}ms)`);
     const result: SyncResult = {
       success: true,
       changedEntities,
@@ -450,6 +470,8 @@ export async function runPullOnly(userId: string | null, origin?: SyncReason): P
 }
 
 export function scheduleSync(userId: string | null, delayMs = 800): void {
+  console.log('[PERF] scheduleSync start', `userId=${userId ?? 'null'}`, `delayMs=${delayMs}`);
+  syncLog('[GATE] scheduleSync CALLED', `userId=${userId ?? 'null'}`, `delayMs=${delayMs}`);
   void listPendingOutbox().then(items => {
     syncLog(
       '[SYNC] scheduleSync called',
@@ -465,6 +487,8 @@ export function scheduleSync(userId: string | null, delayMs = 800): void {
 
   if (syncTimer) clearTimeout(syncTimer);
   syncTimer = setTimeout(() => {
+    console.log('[PERF] scheduleSync timer fired', `userId=${userId ?? 'null'}`);
+    syncLog('[GATE] scheduleSync timer fired', `userId=${userId ?? 'null'}`);
     syncLog('[SYNC] scheduleSync timer fired', `userId=${userId ?? 'null'}`);
     void runFullSync(userId, SyncReason.CRUD);
   }, delayMs);
@@ -477,13 +501,21 @@ export function scheduleSyncWithBackoff(userId: string | null, attempts: number)
 
 /** Primeira sincronização após login (ou após entrar em outra família). */
 export async function initialSync(userId: string): Promise<void> {
+  console.log('[PERF] initialSync start', `userId=${userId}`);
+  syncLog('[GATE] initialSync CALLED', `userId=${userId}`);
   const familyId = await getLocalFamilyId();
-  if (!familyId) return;
+  if (!familyId) {
+    syncLog('[GATE] initialSync BLOCKED', `userId=${userId}`, 'reason=noFamilyId');
+    return;
+  }
+  syncLog('[GATE] initialSync PASSED', `userId=${userId}`, `familyId=${familyId}`);
 
   const last = await metaGet(META_LAST_PULL);
   if (!last) {
     await metaSet(META_LAST_PULL, PULL_EPOCH);
   }
   await ensurePullCursorForFamily(familyId);
+  syncLog('[GATE] initialSync calling runFullSync', `userId=${userId}`);
+  console.log('[PERF] initialSync end', `userId=${userId}`);
   void runFullSync(userId, SyncReason.INITIAL);
 }
