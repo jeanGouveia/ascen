@@ -22,10 +22,11 @@ import { DateField } from '../components/DateField';
 import { Goal } from '../types';
 import { useGoals } from '../context/GoalsContext';
 import { useAuth } from '../context/AuthContext';
-import { useSession } from '../context/SessionContext';
+import { useSessionActions } from '../context/SessionContext';
 import { requestSync } from '../services/sync/syncCoordinator';
 import { SyncReason } from '../types/sync';
 import { logError } from '../services/sentry';
+import { syncLog } from '../utils/syncLogger';
 
 const GOAL_ICONS = ['🎯', '✈️', '🏠', '🚗', '💍', '🎓', '💻', '📱', '🏖️', '🐾', '🎁', '⛵'];
 const GOAL_COLORS = [C_light.primary, '#F97316', '#22C55E', '#EC4899', '#8B5CF6', '#06B6D4', '#F59E0B'];
@@ -51,7 +52,7 @@ export function GoalsScreen() {
   const isMounted = useRef(true);
   const { goals, loading, addGoal, updateGoal, deleteGoal, depositToGoal } = useGoals();
   const { user } = useAuth();
-  const { touch, setCriticalFlow, setSubmitting } = useSession();
+  const { touch, setCriticalFlow, setSubmitting } = useSessionActions();
   const [refreshing, setRefreshing] = useState(false);
 
   const [depositTarget, setDepositTarget] = useState<Goal | null>(null);
@@ -60,6 +61,8 @@ export function GoalsScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<GoalForm>(emptyForm());
   const [saving, setSaving] = useState(false);
+
+  console.log('[PERF] GoalsScreen mounted');
 
   // Critical flow: inhibit lock when form modal is open
   useEffect(() => {
@@ -93,9 +96,13 @@ export function GoalsScreen() {
   // Reset timer when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
+      console.log('[PERF] GoalsScreen useFocusEffect start');
       touch();
+      console.log('[PERF] GoalsScreen useFocusEffect end');
     }, [touch])
   );
+
+  console.log('[PERF] GoalsScreen first render complete');
 
   // Cleanup on unmount
   useEffect(() => {
@@ -189,6 +196,7 @@ export function GoalsScreen() {
   };
 
   const onRefresh = async () => {
+    syncLog('[GATE] GoalsScreen onRefresh CALLED', `userId=${user?.id ?? 'null'}`);
     setRefreshing(true);
     try {
       await requestSync(user?.id ?? null, SyncReason.MANUAL);

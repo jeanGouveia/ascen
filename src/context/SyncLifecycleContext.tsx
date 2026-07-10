@@ -20,18 +20,28 @@ export function SyncLifecycleProvider({ children }: Props) {
   const { localDataReady } = useUserLocal();
 
   useEffect(() => {
+    syncLog('[GATE] SyncLifecycle eligibility check', `user=${user?.id ?? 'null'}`, `localDataReady=${localDataReady}`);
     if (!user || !localDataReady) {
+      syncLog('[GATE] SyncLifecycle BLOCKED', `reason=${!user ? 'no user' : 'localDataReady=false'}`);
       clearSyncEligibility();
       return;
     }
+    syncLog('[GATE] SyncLifecycle PASSED - updating eligibility');
     updateSyncEligibility(user.id, localDataReady);
   }, [user, localDataReady]);
 
   useEffect(() => {
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
-      syncLog('AppState', `state=${nextAppState}`);
-      if (nextAppState !== 'active') return;
-      if (!user || !localDataReady) return;
+      syncLog('[GATE] AppState change', `state=${nextAppState}`, `user=${user?.id ?? 'null'}`, `localDataReady=${localDataReady}`);
+      if (nextAppState !== 'active') {
+        syncLog('[GATE] AppState BLOCKED - not active');
+        return;
+      }
+      if (!user || !localDataReady) {
+        syncLog('[GATE] AppState BLOCKED', `reason=${!user ? 'no user' : 'localDataReady=false'}`);
+        return;
+      }
+      syncLog('[GATE] AppState PASSED - calling requestSync');
       void requestSync(user.id, SyncReason.APP_FOREGROUND);
     };
 

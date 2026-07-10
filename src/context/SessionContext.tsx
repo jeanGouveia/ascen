@@ -3,26 +3,71 @@ import { AppState, AppStateStatus } from 'react-native';
 import { SessionManager } from '../services/sessionManager';
 import { useAuth } from './AuthContext';
 
-interface SessionContextType {
-  locked: boolean;
-  lastActivity: number;
+// ============================================================================
+// SESSION ACTIONS CONTEXT
+// ============================================================================
+
+interface SessionActionsContextType {
   lock: () => void;
   unlock: () => void;
   touch: () => void;
-  isLocked: boolean;
   setCriticalFlow: (active: boolean) => void;
   setSubmitting: (active: boolean) => void;
 }
 
-const SessionContext = createContext<SessionContextType | undefined>(undefined);
+const SessionActionsContext = createContext<SessionActionsContextType | undefined>(undefined);
 
-export function useSession(): SessionContextType {
-  const context = useContext(SessionContext);
+export function useSessionActions(): SessionActionsContextType {
+  const context = useContext(SessionActionsContext);
   if (!context) {
-    throw new Error('useSession must be used within SessionProvider');
+    throw new Error('useSessionActions must be used within SessionProvider');
   }
   return context;
 }
+
+// ============================================================================
+// SESSION STATE CONTEXT
+// ============================================================================
+
+interface SessionStateContextType {
+  locked: boolean;
+}
+
+const SessionStateContext = createContext<SessionStateContextType | undefined>(undefined);
+
+export function useSessionState(): SessionStateContextType {
+  const context = useContext(SessionStateContext);
+  if (!context) {
+    throw new Error('useSessionState must be used within SessionProvider');
+  }
+  return context;
+}
+
+// ============================================================================
+// LEGACY HOOK (retrocompatibilidade)
+// ============================================================================
+
+interface SessionContextType {
+  locked: boolean;
+  lock: () => void;
+  unlock: () => void;
+  touch: () => void;
+  setCriticalFlow: (active: boolean) => void;
+  setSubmitting: (active: boolean) => void;
+}
+
+export function useSession(): SessionContextType {
+  const actions = useSessionActions();
+  const state = useSessionState();
+  return {
+    ...state,
+    ...actions,
+  };
+}
+
+// ============================================================================
+// PROVIDER
+// ============================================================================
 
 interface Props {
   children: React.ReactNode;
@@ -30,15 +75,19 @@ interface Props {
 
 export function SessionProvider({ children }: Props) {
   const [locked, setLocked] = useState(false);
-  const [lastActivity, setLastActivity] = useState(Date.now());
   const managerRef = useRef<SessionManager | null>(null);
   const { user, loading } = useAuth();
 
-  // Inicializa SessionManager
+  // Inicializa SessionManager com callbacks para lock e unlock
   useEffect(() => {
-    const manager = new SessionManager(() => {
-      setLocked(true);
-    });
+    const manager = new SessionManager(
+      () => {
+        setLocked(true);
+      },
+      () => {
+        setLocked(false);
+      }
+    );
     managerRef.current = manager;
 
     return () => {
@@ -57,7 +106,6 @@ export function SessionProvider({ children }: Props) {
       // Usuário não autenticado ou carregando - para monitoramento e limpa estado
       managerRef.current.stop();
       setLocked(false);
-      setLastActivity(Date.now());
     }
   }, [user, loading]);
 
@@ -70,8 +118,6 @@ export function SessionProvider({ children }: Props) {
         managerRef.current.onAppBackground();
       } else if (nextAppState === 'active') {
         managerRef.current.onAppForeground();
-        // Atualiza lastActivity quando volta ao foreground
-        setLastActivity(managerRef.current.getLastActivity());
       }
     };
 
@@ -83,27 +129,21 @@ export function SessionProvider({ children }: Props) {
   }, []);
 
   const lock = useCallback(() => {
-    setLocked(true);
-    // Ao bloquear manualmente, registra nova atividade para evitar relock imediato
     if (managerRef.current) {
       managerRef.current.touch();
-      setLastActivity(managerRef.current.getLastActivity());
+      setLocked(true);
     }
   }, []);
 
   const unlock = useCallback(() => {
-    setLocked(false);
-    // Ao desbloquear, registra nova atividade
     if (managerRef.current) {
-      managerRef.current.touch();
-      setLastActivity(managerRef.current.getLastActivity());
+      managerRef.current.unlock();
     }
   }, []);
 
   const touch = useCallback(() => {
     if (managerRef.current) {
       managerRef.current.touch();
-      setLastActivity(managerRef.current.getLastActivity());
     }
   }, []);
 
@@ -119,21 +159,31 @@ export function SessionProvider({ children }: Props) {
     }
   }, []);
 
-  const isLocked = locked;
-
-  const value: SessionContextType = useMemo(
+  // Actions context value (estável - funções não mudam)
+  const actionsValue = useMemo<SessionActionsContextType>(
     () => ({
-      locked,
-      lastActivity,
       lock,
       unlock,
       touch,
-      isLocked,
       setCriticalFlow,
       setSubmitting,
     }),
-    [locked, lastActivity, lock, unlock, touch, isLocked, setCriticalFlow, setSubmitting]
+    [lock, unlock, touch, setCriticalFlow, setSubmitting]
   );
 
-  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
+  // State context value (muda apenas quando locked muda)
+  const stateValue = useMemo<SessionStateContextType>(
+    () => ({
+      locked,
+    }),
+    [locked]
+  );
+
+  return (
+    <SessionActionsContext.Provider value={actionsValue}>
+      <SessionStateContext.Provider value={stateValue}>
+        {children}
+      </SessionStateContext.Provider>
+    </SessionActionsContext.Provider>
+  );
 }

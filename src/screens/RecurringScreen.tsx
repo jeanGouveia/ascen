@@ -43,7 +43,7 @@ import { PAYMENT_METHODS } from '../constants/finance';
 import { TxType } from '../types';
 import { useRecurring, RecurringRule, RecurringInput, RecurringFrequency } from '../context/RecurringContext';
 import { useCategories } from '../context/CategoryContext';
-import { useSession } from '../context/SessionContext';
+import { useSessionActions } from '../context/SessionContext';
 import { isRuleActiveInCurrentMonth } from '../utils/recurringDates';
 
 // ─── TIPOS ───────────────────────────────────────────────────
@@ -194,7 +194,7 @@ interface RuleFormProps {
 
 function RuleForm({ visible, editing, onSave, onClose, ls }: RuleFormProps) {
   const { C, s } = useAppTheme();
-  const { touch, setCriticalFlow } = useSession();
+  const { touch, setCriticalFlow } = useSessionActions();
   const [type, setType]           = useState<TxType>('expense');
   const [desc, setDesc]           = useState('');
   const [amount, setAmount]       = useState('');
@@ -471,6 +471,19 @@ export function RecurringScreen() {
   const [filterType, setFilterType]     = useState<'all' | 'income' | 'expense'>('all');
   const [confirmedId, setConfirmedId]   = useState<string | null>(null);
   const isMounted = useRef(true);
+
+  console.log('[PERF] RecurringScreen mounted');
+
+  // Reset timer when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('[PERF] RecurringScreen useFocusEffect start');
+      // No touch() call in RecurringScreen
+      console.log('[PERF] RecurringScreen useFocusEffect end');
+    }, [])
+  );
+
+  console.log('[PERF] RecurringScreen first render complete');
 
   // Resumo do mês
   const activeRules  = rules.filter(r => r.active);

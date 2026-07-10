@@ -18,7 +18,7 @@ import { formatBRL, todayStr } from '../utils/helpers';
 import { useApp } from '../context/AppContext';
 import { PAYMENT_METHODS } from '../constants/finance';
 import { useCategories } from '../context/CategoryContext';
-import { useSession } from '../context/SessionContext';
+import { useSessionActions } from '../context/SessionContext';
 import { DateField } from './DateField';
 import {
   buildInstallmentSchedule,
@@ -38,7 +38,7 @@ export function TransactionModal({
   const { C, s } = useAppTheme();
   const { addTransaction, addTransactions } = useApp();
   const { categories } = useCategories();
-  const { touch, setCriticalFlow, setSubmitting } = useSession();
+  const { touch, setCriticalFlow, setSubmitting } = useSessionActions();
   const [type, setType] = useState<TxType>('expense');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');

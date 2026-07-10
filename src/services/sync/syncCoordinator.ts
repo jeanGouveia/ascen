@@ -13,11 +13,13 @@ import { SyncReason } from '../../types/sync';
  */
 
 export function requestSync(userId: string | null, reason: SyncReason = SyncReason.MANUAL): Promise<SyncResult> {
+  syncLog('[GATE] requestSync CALLED', `reason=${reason}`, `userId=${userId ?? 'null'}`);
   syncLog('[SYNC] requestSync accepted', `reason=${reason}`, `userId=${userId ?? 'null'}`);
   return runFullSync(userId, reason);
 }
 
 export function requestPullOnly(userId: string | null, reason: SyncReason = SyncReason.NAVIGATION): Promise<SyncResult> {
+  syncLog('[GATE] requestPullOnly CALLED', `reason=${reason}`, `userId=${userId ?? 'null'}`);
   syncLog('[SYNC] requestPullOnly accepted', `reason=${reason}`, `userId=${userId ?? 'null'}`);
   return runPullOnly(userId, reason);
 }

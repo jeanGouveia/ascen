@@ -14,7 +14,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../context/AuthContext';
 import { useUserLocal } from '../context/UserLocalDataContext';
-import { useSession } from '../context/SessionContext';
+import { useSessionActions } from '../context/SessionContext';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { Card } from '../components/Shared';
 import { saveAvatarFromPickerUri, removeLocalAvatar } from '../services/localAvatar';
@@ -29,7 +29,7 @@ export function EditProfileScreen() {
   const { user, updateProfile } = useAuth();
   const { localAvatarUri, refreshLocalAvatar } = useUserLocal();
   const { C, s } = useAppTheme();
-  const { touch } = useSession();
+  const { touch } = useSessionActions();
   const navigation = useNavigation<any>();
   const meta = user?.user_metadata as Record<string, string | undefined> | undefined;
   const initialName = (meta?.full_name as string) || '';

@@ -1,6 +1,6 @@
 import React from 'react';
 import { TouchableWithoutFeedback, View } from 'react-native';
-import { useSession } from '../context/SessionContext';
+import { useSessionActions } from '../context/SessionContext';
 
 /**
  * Componente wrapper que captura toques globais e reseta o timer de inatividade.
@@ -8,7 +8,7 @@ import { useSession } from '../context/SessionContext';
  * seja registrada como atividade.
  */
 export function ActivityTracker({ children }: { children: React.ReactNode }) {
-  const { touch } = useSession();
+  const { touch } = useSessionActions();
 
   return (
     <TouchableWithoutFeedback

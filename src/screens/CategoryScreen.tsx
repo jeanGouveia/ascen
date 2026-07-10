@@ -16,7 +16,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { Card } from '../components/Shared';
 import { useCategories } from '../context/CategoryContext';
-import { useSession } from '../context/SessionContext';
+import { useSessionActions } from '../context/SessionContext';
 import { Category } from '../types';
 
 // ─── Paleta de cores disponíveis ───────────────────────────────────────────
@@ -54,7 +54,7 @@ const DEFAULT_FORM: CategoryFormState = {
 export function CategoryScreen() {
   const { C, R, s } = useAppTheme();
   const { categories, addCategory, updateCategory, deleteCategory } = useCategories();
-  const { touch, setCriticalFlow } = useSession();
+  const { touch, setCriticalFlow } = useSessionActions();
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -62,12 +62,18 @@ export function CategoryScreen() {
   const [filter, setFilter] = useState<TxType | 'all'>('all');
   const [emojiPickerVisible, setEmojiPickerVisible] = useState(false);
 
+  console.log('[PERF] CategoryScreen mounted');
+
   // Reset timer when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
+      console.log('[PERF] CategoryScreen useFocusEffect start');
       touch();
+      console.log('[PERF] CategoryScreen useFocusEffect end');
     }, [touch])
   );
+
+  console.log('[PERF] CategoryScreen first render complete');
 
   // Critical flow: inhibit lock when modal is open
   React.useEffect(() => {

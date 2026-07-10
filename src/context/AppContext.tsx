@@ -7,6 +7,7 @@ import * as localDb from '../db/localDataDb';
 import { scheduleSync } from '../services/sync/syncEngine';
 import { logger } from '../utils/logger';
 import { logError } from '../services/sentry';
+import { syncLog } from '../utils/syncLogger';
 
 interface AppContextType {
   transactions: Transaction[];
@@ -31,16 +32,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [modalState, setModalState] = useState<TxModalState>({ visible: false, defaultType: 'expense' });
 
   const fetchTransactions = useCallback(async () => {
+    console.log('[PERF] AppContext reload start');
     if (!user || !localDataReady) return;
     try {
+      const startSqlite = Date.now();
       const rows = await localDb.listTransactions();
+      const sqliteTime = Date.now() - startSqlite;
+      console.log('[PERF] AppContext reload sqlite', `${sqliteTime}ms`);
+      const startSetState = Date.now();
       setTransactions(rows);
+      const setStateTime = Date.now() - startSetState;
+      console.log('[PERF] AppContext reload setState', `${setStateTime}ms`);
     } catch (error: unknown) {
       const err = error instanceof Error ? error : new Error('Failed to fetch transactions');
       logError(err, { context: 'fetchTransactions' });
       logger.error('Erro ao buscar transações:', err.message);
     } finally {
       setLoading(false);
+      console.log('[PERF] AppContext reload finished');
     }
   }, [user, localDataReady]);
 
@@ -55,9 +64,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [user, localDataReady, dataRevision, fetchTransactions]);
 
   const addTransaction = useCallback(async (data: Omit<Transaction, 'id'>) => {
-    if (!user || !localDataReady) return;
+    syncLog('[GATE] AppContext addTransaction CALLED', `userId=${user?.id ?? 'null'}`, `localDataReady=${localDataReady}`);
+    if (!user || !localDataReady) {
+      syncLog('[GATE] AppContext addTransaction BLOCKED', `reason=${!user ? 'no user' : 'localDataReady=false'}`);
+      return;
+    }
     try {
       await localDb.insertTransaction(data);
+      syncLog('[GATE] AppContext addTransaction calling scheduleSync', `userId=${user.id}`);
       scheduleSync(user.id);
       await fetchTransactions();
     } catch (error: unknown) {
@@ -69,11 +83,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addTransactions = useCallback(
     async (txs: Omit<Transaction, 'id'>[]) => {
-      if (!user || !localDataReady || txs.length === 0) return;
+      syncLog('[GATE] AppContext addTransactions CALLED', `userId=${user?.id ?? 'null'}`, `localDataReady=${localDataReady}`, `count=${txs.length}`);
+      if (!user || !localDataReady || txs.length === 0) {
+        syncLog('[GATE] AppContext addTransactions BLOCKED', `reason=${!user ? 'no user' : !localDataReady ? 'localDataReady=false' : 'empty array'}`);
+        return;
+      }
       try {
         for (const tx of txs) {
           await localDb.insertTransaction(tx);
         }
+        syncLog('[GATE] AppContext addTransactions calling scheduleSync', `userId=${user.id}`);
         scheduleSync(user.id);
         await fetchTransactions();
       } catch (error: unknown) {
@@ -87,10 +106,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteTransaction = useCallback(
     async (id: string) => {
-      if (!localDataReady) return;
+      syncLog('[GATE] AppContext deleteTransaction CALLED', `userId=${user?.id ?? 'null'}`, `localDataReady=${localDataReady}`);
+      if (!localDataReady) {
+        syncLog('[GATE] AppContext deleteTransaction BLOCKED', 'reason=localDataReady=false');
+        return;
+      }
       try {
         await localDb.deleteTransaction(id);
-        if (user) scheduleSync(user.id);
+        if (user) {
+          syncLog('[GATE] AppContext deleteTransaction calling scheduleSync', `userId=${user.id}`);
+          scheduleSync(user.id);
+        }
         setTransactions(prev => prev.filter(t => t.id !== id));
       } catch (error: unknown) {
         const err = error instanceof Error ? error : new Error('Failed to delete transaction');

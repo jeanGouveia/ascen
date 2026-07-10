@@ -4,6 +4,8 @@ import { recurringToRemote } from '../mappers';
 import type { DbRecurringRule } from '../../../types/database';
 
 export async function pullRecurringRules(familyId: string, since: string): Promise<boolean> {
+  const startTotal = Date.now();
+  const startSupabase = Date.now();
   const { data, error } = await supabase
     .from('recurring_rules')
     .select('*')
@@ -13,18 +15,31 @@ export async function pullRecurringRules(familyId: string, since: string): Promi
 
   if (error) throw new Error(error.message);
 
+  const supabaseTime = Date.now() - startSupabase;
+  const rows = data ?? [];
   let changed = false;
   const db = getDb();
-  for (const row of (data ?? []) as DbRecurringRule[]) {
+  let insertCount = 0;
+  let updateCount = 0;
+  let deleteCount = 0;
+  const startLoop = Date.now();
+  for (const row of rows as DbRecurringRule[]) {
     const result = await upsertRecurringRuleLocal(row as unknown as Record<string, unknown>);
+    if (result === 'inserted') insertCount++;
+    else if (result === 'updated') updateCount++;
+    else if (result === 'deleted') deleteCount++;
     if (result !== 'skipped') changed = true;
   }
+  const loopTime = Date.now() - startLoop;
+  const totalTime = Date.now() - startTotal;
+  console.log('[PERF] pullRecurringRules', `Supabase: ${supabaseTime}ms`, `Rows: ${rows.length}`, `INSERT: ${insertCount}`, `UPDATE: ${updateCount}`, `DELETE: ${deleteCount}`, `Loop: ${loopTime}ms`, `Total: ${totalTime}ms`);
   return changed;
 }
 
 type UpsertResult = 'inserted' | 'updated' | 'deleted' | 'skipped';
 
 async function upsertRecurringRuleLocal(row: Record<string, unknown>): Promise<UpsertResult> {
+  const startSqlite = Date.now();
   const db = getDb();
   const id = String(row.id);
   const remoteUpdated = String(row.updated_at ?? '');
@@ -32,6 +47,8 @@ async function upsertRecurringRuleLocal(row: Record<string, unknown>): Promise<U
 
   if (deletedAt) {
     await db.runAsync('DELETE FROM recurring_rules WHERE id = ?', [id]);
+    const sqliteTime = Date.now() - startSqlite;
+    console.log('[PERF] upsertRecurringRuleLocal DELETE', `${sqliteTime}ms`);
     return 'deleted';
   }
 
@@ -74,6 +91,8 @@ async function upsertRecurringRuleLocal(row: Record<string, unknown>): Promise<U
     ]
   );
 
+  const sqliteTime = Date.now() - startSqlite;
+  console.log('[PERF] upsertRecurringRuleLocal', `${isUpdate ? 'UPDATE' : 'INSERT'}`, `${sqliteTime}ms`);
   return isUpdate ? 'updated' : 'inserted';
 }
 

@@ -19,7 +19,7 @@ import { useAppTheme } from '../hooks/useAppTheme';
 import { usePreferences } from '../context/PreferencesContext';
 import { Card } from '../components/Shared';
 import { useAuth } from '../context/AuthContext';
-import { useSession } from '../context/SessionContext';
+import { useSessionActions } from '../context/SessionContext';
 import { useUserLocal } from '../context/UserLocalDataContext';
 import { useFamily } from '../context/FamilyContext';
 import { initialSync } from '../services/sync/syncEngine';
@@ -45,17 +45,23 @@ export function ProfileScreen() {
   const { darkMode, setDarkMode, fontScale, setFontScale } = usePreferences();
   const { localAvatarUri, bumpDataRevision } = useUserLocal();
   const { joinCode, role, joinByCode, refreshFamily } = useFamily();
-  const { touch } = useSession();
+  const { touch } = useSessionActions();
 
   const [busy, setBusy] = useState(false);
   const [joinCodeInput, setJoinCodeInput] = useState('');
 
+  console.log('[PERF] ProfileScreen mounted');
+
   // Reset timer when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
+      console.log('[PERF] ProfileScreen useFocusEffect start');
       touch();
+      console.log('[PERF] ProfileScreen useFocusEffect end');
     }, [touch])
   );
+
+  console.log('[PERF] ProfileScreen first render complete');
 
   const meta = user?.user_metadata as Record<string, string | undefined> | undefined;
   const displayName = meta?.full_name || 'Usuário';

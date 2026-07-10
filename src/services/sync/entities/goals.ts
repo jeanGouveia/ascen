@@ -7,6 +7,7 @@ import { syncLog, syncLogJson } from '../../../utils/syncLogger';
 type GoalUpsertResult = 'inserted' | 'updated' | 'deleted' | 'skipped';
 
 export async function pullGoals(familyId: string, since: string): Promise<boolean> {
+  const startTotal = Date.now();
   const queryDescription =
     "goals.select('*').eq('family_id', familyId).gt('updated_at', since).order('updated_at', asc)";
 
@@ -18,6 +19,7 @@ export async function pullGoals(familyId: string, since: string): Promise<boolea
     `query=${queryDescription}`,
   );
 
+  const startSupabase = Date.now();
   const { data, error } = await supabase
     .from('goals')
     .select('*')
@@ -38,6 +40,7 @@ export async function pullGoals(familyId: string, since: string): Promise<boolea
     throw new Error(error.message);
   }
 
+  const supabaseTime = Date.now() - startSupabase;
   const rows = (data ?? []) as DbGoal[];
 
   syncLog(
@@ -52,6 +55,7 @@ export async function pullGoals(familyId: string, since: string): Promise<boolea
   let inserted = 0;
   let updated = 0;
   let deleted = 0;
+  const startLoop = Date.now();
 
   for (const row of rows) {
     const result = await upsertGoalLocal(row as unknown as Record<string, unknown>);
@@ -59,6 +63,10 @@ export async function pullGoals(familyId: string, since: string): Promise<boolea
     else if (result === 'updated') updated += 1;
     else if (result === 'deleted') deleted += 1;
   }
+
+  const loopTime = Date.now() - startLoop;
+  const totalTime = Date.now() - startTotal;
+  console.log('[PERF] pullGoals', `Supabase: ${supabaseTime}ms`, `Rows: ${rows.length}`, `INSERT: ${inserted}`, `UPDATE: ${updated}`, `DELETE: ${deleted}`, `Loop: ${loopTime}ms`, `Total: ${totalTime}ms`);
 
   syncLog(
     'pullGoals()',
@@ -88,6 +96,7 @@ export async function pullGoals(familyId: string, since: string): Promise<boolea
 }
 
 async function upsertGoalLocal(row: Record<string, unknown>): Promise<GoalUpsertResult> {
+  const startSqlite = Date.now();
   const db = getDb();
   const id = String(row.id);
   const remoteUpdated = String(row.updated_at ?? '');
@@ -95,6 +104,8 @@ async function upsertGoalLocal(row: Record<string, unknown>): Promise<GoalUpsert
 
   if (deletedAt) {
     await db.runAsync('DELETE FROM goals WHERE id = ?', [id]);
+    const sqliteTime = Date.now() - startSqlite;
+    console.log('[PERF] upsertGoalLocal DELETE', `${sqliteTime}ms`);
     return 'deleted';
   }
 
@@ -128,6 +139,8 @@ async function upsertGoalLocal(row: Record<string, unknown>): Promise<GoalUpsert
     ]
   );
 
+  const sqliteTime = Date.now() - startSqlite;
+  console.log('[PERF] upsertGoalLocal', `${isUpdate ? 'UPDATE' : 'INSERT'}`, `${sqliteTime}ms`);
   return isUpdate ? 'updated' : 'inserted';
 }
 

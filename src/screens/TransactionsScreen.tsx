@@ -8,11 +8,12 @@ import { Card, EmptyState, TxCard, FAB } from '../components/Shared';
 import { useApp } from '../context/AppContext';
 import { useRecurring } from '../context/RecurringContext';
 import { useAuth } from '../context/AuthContext';
-import { useSession } from '../context/SessionContext';
+import { useSessionActions } from '../context/SessionContext';
 import { requestSync } from '../services/sync/syncCoordinator';
 import { SyncReason } from '../types/sync';
 import { isRuleActiveInCurrentMonth } from '../utils/recurringDates';
 import { Transaction } from '../types';
+import { syncLog } from '../utils/syncLogger';
 
 export function TransactionsScreen() {
   const navigation = useNavigation<any>();
@@ -20,16 +21,22 @@ export function TransactionsScreen() {
   const { transactions } = useApp();
   const { rules } = useRecurring();
   const { user } = useAuth();
-  const { touch } = useSession();
+  const { touch } = useSessionActions();
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [refreshing, setRefreshing] = useState(false);
+
+  console.log('[PERF] TransactionsScreen mounted');
 
   // Reset timer when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
+      console.log('[PERF] TransactionsScreen useFocusEffect start');
       touch();
+      console.log('[PERF] TransactionsScreen useFocusEffect end');
     }, [touch])
   );
+
+  console.log('[PERF] TransactionsScreen first render complete');
 
   const recurringThisMonth = rules.filter(r => r.active && isRuleActiveInCurrentMonth(r));
   const recurringPending = recurringThisMonth.filter(r => !r.confirmedThisMonth);
@@ -62,6 +69,7 @@ export function TransactionsScreen() {
   const totalExpense = filtered.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
 
   const onRefresh = async () => {
+    syncLog('[GATE] TransactionsScreen onRefresh CALLED', `userId=${user?.id ?? 'null'}`);
     setRefreshing(true);
     try {
       await requestSync(user?.id ?? null, SyncReason.MANUAL);

@@ -8,7 +8,7 @@ import { EmptyState, TxCard, FAB } from '../components/Shared';
 import { SyncStatusBar } from '../components/SyncStatusBar';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
-import { useSession } from '../context/SessionContext';
+import { useSessionActions } from '../context/SessionContext';
 import { requestSync } from '../services/sync/syncCoordinator';
 import { SyncReason } from '../types/sync';
 import {
@@ -16,22 +16,29 @@ import {
   getCurrentYearMonth,
   getMonthSummary,
 } from '../utils/financeAggregates';
+import { syncLog } from '../utils/syncLogger';
 
 export function HomeScreen() {
   const { C, s } = useAppTheme();
   const navigation = useNavigation<any>();
   const { transactions, openTxModal } = useApp();
   const { user } = useAuth();
-  const { touch } = useSession();
+  const { touch } = useSessionActions();
   const [refreshing, setRefreshing] = useState(false);
   const { year, month } = getCurrentYearMonth();
+
+  console.log('[PERF] HomeScreen mounted');
 
   // Reset timer when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
+      console.log('[PERF] HomeScreen useFocusEffect start');
       touch();
+      console.log('[PERF] HomeScreen useFocusEffect end');
     }, [touch])
   );
+
+  console.log('[PERF] HomeScreen first render complete');
 
   const { income, expense, balance } = useMemo(
     () => getMonthSummary(transactions, year, month),
@@ -44,6 +51,7 @@ export function HomeScreen() {
   }, [transactions, year, month]);
 
   const onRefresh = async () => {
+    syncLog('[GATE] HomeScreen onRefresh CALLED', `userId=${user?.id ?? 'null'}`);
     setRefreshing(true);
     try {
       await requestSync(user?.id ?? null, SyncReason.MANUAL);

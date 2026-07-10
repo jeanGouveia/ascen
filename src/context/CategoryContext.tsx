@@ -8,6 +8,7 @@ import * as localDb from '../db/localDataDb';
 import { scheduleSync } from '../services/sync/syncEngine';
 import { logger } from '../utils/logger';
 import { logError } from '../services/sentry';
+import { syncLog } from '../utils/syncLogger';
 
 interface CategoryContextType {
   categories: Category[];
@@ -51,20 +52,28 @@ export const CategoryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const categories: Category[] = mergeCategories(DEFAULT_CATEGORIES, customCategories);
 
   const fetchCategories = useCallback(async () => {
+    console.log('[PERF] CategoryContext reload start');
     if (!user || !localDataReady) {
       setCustomCategories([]);
       setLoading(false);
       return;
     }
     try {
+      const startSqlite = Date.now();
       const rows = await localDb.listCustomCategories();
+      const sqliteTime = Date.now() - startSqlite;
+      console.log('[PERF] CategoryContext reload sqlite', `${sqliteTime}ms`);
+      const startSetState = Date.now();
       setCustomCategories(rows);
+      const setStateTime = Date.now() - startSetState;
+      console.log('[PERF] CategoryContext reload setState', `${setStateTime}ms`);
     } catch (err: unknown) {
       const error = err instanceof Error ? err : new Error('Failed to fetch categories');
       logError(error, { context: 'fetchCategories' });
       logger.error('Erro ao buscar categorias:', error.message);
     } finally {
       setLoading(false);
+      console.log('[PERF] CategoryContext reload finished');
     }
   }, [user, localDataReady]);
 
@@ -74,9 +83,14 @@ export const CategoryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const addCategory = useCallback(
     async (data: Omit<Category, 'id' | 'isDefault'>) => {
-      if (!user || !localDataReady) return;
+      syncLog('[GATE] CategoryContext addCategory CALLED', `userId=${user?.id ?? 'null'}`, `localDataReady=${localDataReady}`);
+      if (!user || !localDataReady) {
+        syncLog('[GATE] CategoryContext addCategory BLOCKED', `reason=${!user ? 'no user' : 'localDataReady=false'}`);
+        return;
+      }
       try {
         await localDb.insertCategory(data);
+        syncLog('[GATE] CategoryContext addCategory calling scheduleSync', `userId=${user.id}`);
         scheduleSync(user.id);
         await fetchCategories();
       } catch (err: unknown) {
@@ -90,13 +104,18 @@ export const CategoryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const updateCategory = useCallback(
     async (id: string, data: Partial<Omit<Category, 'id' | 'isDefault'>>) => {
+      syncLog('[GATE] CategoryContext updateCategory CALLED', `userId=${user?.id ?? 'null'}`, `localDataReady=${localDataReady}`);
       if (id.startsWith('default_')) {
         Alert.alert('Categoria padrão', 'Categorias padrão não podem ser editadas.');
         return;
       }
-      if (!localDataReady || !user) return;
+      if (!localDataReady || !user) {
+        syncLog('[GATE] CategoryContext updateCategory BLOCKED', `reason=${!user ? 'no user' : 'localDataReady=false'}`);
+        return;
+      }
       try {
         await localDb.updateCategory(id, data);
+        syncLog('[GATE] CategoryContext updateCategory calling scheduleSync', `userId=${user.id}`);
         scheduleSync(user.id);
         await fetchCategories();
       } catch (err: unknown) {
@@ -105,16 +124,23 @@ export const CategoryProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         Alert.alert('Erro ao atualizar', 'Não foi possível atualizar a categoria. Tente novamente.');
       }
     },
-    [localDataReady, fetchCategories]
+    [localDataReady, fetchCategories, user]
   );
 
   const deleteCategory = useCallback(
     async (id: string) => {
+      syncLog('[GATE] CategoryContext deleteCategory CALLED', `userId=${user?.id ?? 'null'}`, `localDataReady=${localDataReady}`);
       if (id.startsWith('default_')) return;
-      if (!localDataReady) return;
+      if (!localDataReady) {
+        syncLog('[GATE] CategoryContext deleteCategory BLOCKED', 'reason=localDataReady=false');
+        return;
+      }
       try {
         await localDb.deleteCategory(id);
-        if (user) scheduleSync(user.id);
+        if (user) {
+          syncLog('[GATE] CategoryContext deleteCategory calling scheduleSync', `userId=${user.id}`);
+          scheduleSync(user.id);
+        }
         setCustomCategories(prev => prev.filter(c => c.id !== id));
       } catch (err: unknown) {
         const error = err instanceof Error ? err : new Error('Failed to delete category');

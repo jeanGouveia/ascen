@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { useSession } from '../context/SessionContext';
+import { useSessionActions } from '../context/SessionContext';
 import { useAppTheme } from '../hooks/useAppTheme';
 
 export function SessionLockScreen() {
-  const { unlock } = useSession();
+  const { unlock } = useSessionActions();
   const { C } = useAppTheme();
   const [unlocking, setUnlocking] = useState(false);
 

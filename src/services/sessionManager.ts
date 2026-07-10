@@ -23,19 +23,22 @@ const INTERACTION_THRESHOLD_MS = 1500; // 1.5 segundos - considerado interação
 const TEST_MODE = SESSION_TIMEOUT_SECONDS <= 10;
 
 type LockCallback = () => void;
+type UnlockCallback = () => void;
 
 export class SessionManager {
   private checkInterval: NodeJS.Timeout | null = null;
   private backgroundTimestamp: number | null = null;
   private lastInteraction: number;
   private onLock: LockCallback;
+  private onUnlock: UnlockCallback;
   private isRunning: boolean = false;
   private criticalFlowActive: boolean = false;
   private lastLockTimestamp: number = 0;
   private isSubmitting: boolean = false;
 
-  constructor(onLock: LockCallback) {
+  constructor(onLock: LockCallback, onUnlock: UnlockCallback) {
     this.onLock = onLock;
+    this.onUnlock = onUnlock;
     this.lastInteraction = Date.now();
     if (TEST_MODE) {
       console.log(`[SESSION] TEST MODE - timeout: ${SESSION_TIMEOUT_SECONDS}s`);
@@ -240,6 +243,19 @@ export class SessionManager {
    */
   getLastActivity(): number {
     return this.lastInteraction;
+  }
+
+  /**
+   * Desbloqueia a sessão manualmente (chamado pelo usuário via biometria).
+   * Registra nova atividade e notifica React.
+   */
+  unlock(): void {
+    this.lastInteraction = Date.now();
+    this.onUnlock();
+    
+    if (TEST_MODE) {
+      console.log('[SESSION] unlocked');
+    }
   }
 
   /**

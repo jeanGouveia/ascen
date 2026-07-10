@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator,
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
-import { useSession } from '../context/SessionContext';
+import { useSessionActions } from '../context/SessionContext';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { validatePassword, PASSWORD_MIN_LENGTH } from '../utils/passwordPolicy';
 import { logError } from '../services/sentry';
@@ -11,7 +11,7 @@ import { logError } from '../services/sentry';
 export function ChangePasswordScreen() {
   const { canChangePassword, updatePassword } = useAuth();
   const { C, s } = useAppTheme();
-  const { touch } = useSession();
+  const { touch } = useSessionActions();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [saving, setSaving] = useState(false);

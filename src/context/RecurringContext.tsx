@@ -17,6 +17,7 @@ import { logger } from '../utils/logger';
 import { scheduleRecurringNotifications } from '../services/notificationScheduler';
 import { usePreferences } from './PreferencesContext';
 import { logError } from '../services/sentry';
+import { syncLog } from '../utils/syncLogger';
 
 export type RecurringFrequency = 'monthly' | 'weekly' | 'yearly';
 
@@ -109,20 +110,28 @@ export const RecurringProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   );
 
   const reload = useCallback(async () => {
+    console.log('[PERF] RecurringContext reload start');
     if (!user || !localDataReady) {
       setRules([]);
       setLoading(false);
       return;
     }
     try {
+      const startSqlite = Date.now();
       const rows = await localDb.listRecurringRows();
+      const sqliteTime = Date.now() - startSqlite;
+      console.log('[PERF] RecurringContext reload sqlite', `${sqliteTime}ms`);
+      const startSetState = Date.now();
       setRules(rows.map(mapRow));
+      const setStateTime = Date.now() - startSetState;
+      console.log('[PERF] RecurringContext reload setState', `${setStateTime}ms`);
     } catch (err: unknown) {
       const error = err instanceof Error ? err : new Error('Failed to reload recurring rules');
       logError(error, { context: 'reloadRecurringRules' });
       logger.error('RecurringContext.reload:', error.message);
     } finally {
       setLoading(false);
+      console.log('[PERF] RecurringContext reload finished');
     }
   }, [user, localDataReady]);
 
@@ -132,7 +141,11 @@ export const RecurringProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const addRule = useCallback(
     async (data: RecurringInput) => {
-      if (!user || !localDataReady) return;
+      syncLog('[GATE] RecurringContext addRule CALLED', `userId=${user?.id ?? 'null'}`, `localDataReady=${localDataReady}`);
+      if (!user || !localDataReady) {
+        syncLog('[GATE] RecurringContext addRule BLOCKED', `reason=${!user ? 'no user' : 'localDataReady=false'}`);
+        return;
+      }
       try {
         const id = await localDb.insertRecurringRow({
           type: data.type,
@@ -148,6 +161,7 @@ export const RecurringProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           startsOn: data.startsOn,
         });
         await syncRecurringProjectedTransactions({ id, ...data });
+        syncLog('[GATE] RecurringContext addRule calling scheduleSync', `userId=${user.id}`);
         scheduleSync(user.id);
         await fetchTransactions();
         await reload();
@@ -164,7 +178,11 @@ export const RecurringProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const updateRule = useCallback(
     async (id: string, data: Partial<RecurringInput>) => {
-      if (!localDataReady) return;
+      syncLog('[GATE] RecurringContext updateRule CALLED', `userId=${user?.id ?? 'null'}`, `localDataReady=${localDataReady}`);
+      if (!localDataReady) {
+        syncLog('[GATE] RecurringContext updateRule BLOCKED', 'reason=localDataReady=false');
+        return;
+      }
       try {
         await localDb.updateRecurringRow(id, {
           type: data.type,
@@ -197,7 +215,10 @@ export const RecurringProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             startsOn: data.startsOn ?? updated.startsOn,
           });
         }
-        if (user) scheduleSync(user.id);
+        if (user) {
+          syncLog('[GATE] RecurringContext updateRule calling scheduleSync', `userId=${user.id}`);
+          scheduleSync(user.id);
+        }
         await fetchTransactions();
         await reload();
         const rows = await localDb.listRecurringRows();
@@ -213,10 +234,17 @@ export const RecurringProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const deleteRule = useCallback(
     async (id: string) => {
-      if (!localDataReady) return;
+      syncLog('[GATE] RecurringContext deleteRule CALLED', `userId=${user?.id ?? 'null'}`, `localDataReady=${localDataReady}`);
+      if (!localDataReady) {
+        syncLog('[GATE] RecurringContext deleteRule BLOCKED', 'reason=localDataReady=false');
+        return;
+      }
       try {
         await localDb.deleteRecurringRow(id);
-        if (user) scheduleSync(user.id);
+        if (user) {
+          syncLog('[GATE] RecurringContext deleteRule calling scheduleSync', `userId=${user.id}`);
+          scheduleSync(user.id);
+        }
         await fetchTransactions();
         setRules(prev => {
           const next = prev.filter(r => r.id !== id);
@@ -243,7 +271,11 @@ export const RecurringProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const confirmRule = useCallback(
     async (rule: RecurringRule) => {
-      if (!user || !localDataReady) return;
+      syncLog('[GATE] RecurringContext confirmRule CALLED', `userId=${user?.id ?? 'null'}`, `localDataReady=${localDataReady}`);
+      if (!user || !localDataReady) {
+        syncLog('[GATE] RecurringContext confirmRule BLOCKED', `reason=${!user ? 'no user' : 'localDataReady=false'}`);
+        return;
+      }
       try {
         if (!isRuleActiveInCurrentMonth(rule)) {
           Alert.alert(
@@ -269,6 +301,7 @@ export const RecurringProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           });
         }
 
+        syncLog('[GATE] RecurringContext confirmRule calling scheduleSync', `userId=${user.id}`);
         scheduleSync(user.id);
         await fetchTransactions();
         setRules(prev =>
